@@ -1,0 +1,29 @@
+flutter_native_splash:
+  image: "assets/logo/consult1.png"
+
+  image_dark: "assets/logo/consult1.png"
+
+
+  android_12:
+    image: "assets/logo/consult1.png"
+    color: "#FFFFFF"
+    image_dark: "assets/logo/consult1.png"
+    color_dark: "#FFFFFF"
+    icon_background_color_dark: "#FFFFFF"
+
+  android: true
+  ios: true
+  web: true
+
+  color_android: "#FFFFFF"
+  color_dark_android: "#FFFFFF"
+  color_ios: "#FFFFFF"
+  color_dark_ios: "#FFFFFF"
+  color_web: "#FFFFFF"
+  color_dark_web: "#FFFFFF"
+
+  android_gravity: center
+  ios_content_mode: center
+  web_image_mode: center
+
+  fullscreen: true

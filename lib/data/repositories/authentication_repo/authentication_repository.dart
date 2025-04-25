@@ -1,0 +1,161 @@
+import 'package:flutter_native_splash/flutter_native_splash.dart';
+import 'package:get/get.dart';
+import 'package:get_storage/get_storage.dart';
+import 'package:bhagwatiassociate/features/auth/data/models/registrationdatamodel.dart';
+import 'package:bhagwatiassociate/features/auth/screens/login/loginscreen.dart';
+import 'package:bhagwatiassociate/navigation_menu.dart';
+import 'package:bhagwatiassociate/utils/http/http_client.dart';
+import 'package:bhagwatiassociate/utils/loaders/loaders.dart';
+
+class AuthRepository extends GetxController {
+  static AuthRepository get instance => Get.find();
+
+  /// variables
+  final deviceStorage = GetStorage();
+  //  final SLocalStorage _localStorage = SLocalStorage();
+
+  @override
+  void onReady() {
+    FlutterNativeSplash.remove();
+    screenRedirect();
+  }
+
+  void screenRedirect() {
+    // final User = _auth.currentUser;
+
+    /// -- initialize the auth status & first time
+    deviceStorage.writeIfNull('authStatus', false);
+    deviceStorage.writeIfNull('IsFirstTime', true);
+    deviceStorage.writeIfNull('profileData', {"_id": "NULL"});
+    // deviceStorage.writeIfNull('profileData', {"ID": {}});
+    deviceStorage.writeIfNull('token', '');
+
+    // for debugging
+    // deviceStorage.write('authStatus', false);
+    // deviceStorage.write('IsFirstTime', true);
+
+    /// -- check if user is already signed in
+    if (deviceStorage.read('authStatus') == true) {
+      Get.offAll(() => const NavigationMenu());
+    } else {
+      Get.offAll(() => const loginScreen());
+    }
+
+    // if (User != null) {
+    //   // User is signed in
+    //   Get.offAll(() => const NavigationMenu());
+    // } else {
+
+    //   // check if its first time
+    // deviceStorage.read('IsFirstTime') != true
+    //     ? Get.offAll(() => const loginScreen()) :
+
+    // }
+  }
+
+/*----------------Register-----------------*/
+  Future<Map<String, dynamic>> requestOtp({
+    required Registrationdatamodel registrationDataModel,
+  }) async {
+    try {
+      return await SHttpHelper.post(
+          'auth/register', registrationDataModel.toJson());
+    } catch (e) {
+      rethrow;
+      // SLoader.errorSnackBar(title: 'oh snap', message: e.toString());
+    }
+  }
+
+  Future<Map<String, dynamic>> verifyOtp({
+    required Registrationdatamodel registrationDataModel,
+  }) async {
+    try {
+      return await SHttpHelper.post(
+          'auth/register/verifyotp', registrationDataModel.toJson());
+    } catch (e) {
+      // SLoader.errorSnackBar(title: 'oh snap', message: e.toString());
+      rethrow;
+    }
+  }
+
+/*----------------Login-----------------*/
+
+  Future<Map<String, dynamic>> loginUser({
+    required String mobileNumber,
+    required String password,
+  }) async {
+    try {
+      return await SHttpHelper.post('auth/login', {
+        'mobileNumber': mobileNumber,
+        'password': password,
+        'role': 'consultant',
+      });
+    } catch (e) {
+      // SLoader.errorSnackBar(title: 'oh snap', message: e.toString());
+      rethrow;
+    }
+  }
+// Future<void> loginUser({
+//   required String email,
+//   required String password,
+// }) async {
+//   try {
+//     await _auth.signInWithEmailAndPassword(email: email, password: password);
+//   } catch (e) {
+//     SLoader.errorSnackBar(title: 'oh snap', message: e.toString());
+//   }
+// }
+
+/* --------------- federated identity & social sign-in ------------------ */
+
+// Future<UserCredential?> signInWithGoogle() async {
+//   try {
+//     final GoogleSignInAccount? userAccount = await GoogleSignIn().signIn();
+//     final GoogleSignInAuthentication? googleAuth =
+//         await userAccount?.authentication;
+
+//     final credential = GoogleAuthProvider.credential(
+//         accessToken: googleAuth?.accessToken, idToken: googleAuth?.idToken);
+
+//     return await _auth.signInWithCredential(credential);
+//   } catch (e) {
+//     SLoader.errorSnackBar(title: 'oh snap', message: e.toString());
+//   }
+//   return null;
+// }
+
+/*             sign out                */
+  Future<void> signOut() async {
+    deviceStorage.write('authStatus', false);
+    // deviceStorage.writeIfNull('IsFirstTime', true);
+    deviceStorage.write('profileData', {"_id": "NULL"});
+    // deviceStorage.writeIfNull('profileData', {"ID": {}});
+    deviceStorage.write('token', '');
+
+    Get.offAll(() => const loginScreen());
+    SLoader.successSnackBar(
+        title: 'Success', message: 'Logged out successfully');
+  }
+
+  Future<void> deleteAccount() async {
+    try {
+      // try {
+
+      final response = await SHttpHelper.deleteWithToken(
+          'user/profile', deviceStorage.read('token'));
+
+      if (response['message'] != null) {
+        deviceStorage.write('authStatus', false);
+        // deviceStorage.writeIfNull('IsFirstTime', true);
+        deviceStorage.write('profileData', {"_id": "NULL"});
+        // deviceStorage.writeIfNull('profileData', {"ID": {}});
+        deviceStorage.write('token', '');
+
+        Get.offAll(() => const loginScreen());
+        SLoader.successSnackBar(title: 'Success', message: response['message']);
+      }
+    } catch (e) {
+      throw 'unable to delete account ${e.toString()}';
+    }
+  }
+}
