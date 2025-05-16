@@ -1,7 +1,7 @@
 import 'package:bhagwatiassociate/features/Dashboard/screens/dashboard_screen.dart';
 import 'package:flutter/material.dart';
-
-import '../../../lead/screens/lead_list.dart';
+import 'package:bhagwatiassociate/features/leads/screens/lead_list.dart';
+import 'package:bhagwatiassociate/features/leads/screens/lead_lookup_screen.dart';
 
 class Sidebar extends StatefulWidget {
   const Sidebar({Key? key}) : super(key: key);
@@ -37,7 +37,8 @@ class _SidebarState extends State<Sidebar> {
                 Navigator.pop(context);
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => const DashboardScreen()),
+                  MaterialPageRoute(
+                      builder: (context) => const DashboardScreen()),
                 );
               },
             ),
@@ -53,7 +54,25 @@ class _SidebarState extends State<Sidebar> {
                 Navigator.pop(context);
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => const LeadListScreen()),
+                  MaterialPageRoute(
+                      builder: (context) => const LeadListScreen()),
+                );
+              },
+            ),
+            _buildMenuItem(
+              context,
+              icon: Icons.search,
+              title: 'Lead Lookup',
+              isSelected: _selectedIndex == 2,
+              onTap: () {
+                setState(() {
+                  _selectedIndex = 2;
+                });
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => const LeadLookupScreen()),
                 );
               },
             ),
@@ -64,33 +83,70 @@ class _SidebarState extends State<Sidebar> {
   }
 
   Widget _buildLogo() {
-    return Padding(
-      padding: const EdgeInsets.all(1.0),
-      child: Image.asset(
-        'assets/logo/consult1.png',
-        width: 100,
-        height: 100,
-      ),
+    return Column(
+      children: [
+        Image.asset(
+          'assets/images/logo.png',
+          width: 100,
+          height: 100,
+          errorBuilder: (context, error, stackTrace) {
+            return Container(
+              width: 100,
+              height: 100,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(
+                Icons.business,
+                size: 50,
+                color: Color(0xFF2D3748),
+              ),
+            );
+          },
+        ),
+        const SizedBox(height: 10),
+        const Text(
+          'Bhagwati Associate',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 5),
+        const Text(
+          'Management System',
+          style: TextStyle(
+            color: Colors.white70,
+            fontSize: 14,
+          ),
+        ),
+        const SizedBox(height: 20),
+      ],
     );
   }
 
   Widget _buildMenuItem(
-      BuildContext context, {
-        required IconData icon,
-        required String title,
-        required bool isSelected,
-        required VoidCallback onTap,
-      }) {
+    BuildContext context, {
+    required IconData icon,
+    required String title,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
     return Container(
-      color: isSelected ? Colors.blue : Colors.transparent,
+      color: isSelected ? Colors.white.withOpacity(0.1) : Colors.transparent,
       child: ListTile(
         leading: Icon(
           icon,
-          color: Colors.white,
+          color: isSelected ? Colors.white : Colors.white70,
         ),
         title: Text(
           title,
-          style: const TextStyle(color: Colors.white),
+          style: TextStyle(
+            color: isSelected ? Colors.white : Colors.white70,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+          ),
         ),
         onTap: onTap,
       ),

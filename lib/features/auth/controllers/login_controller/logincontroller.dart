@@ -10,6 +10,8 @@ import 'package:bhagwatiassociate/utils/helpers/helper_functions.dart';
 import 'package:bhagwatiassociate/utils/loaders/loaders.dart';
 import 'package:bhagwatiassociate/utils/network_manager/network_manager.dart';
 import 'package:bhagwatiassociate/utils/popups/full_screen_loader.dart';
+import 'package:bhagwatiassociate/utils/http/http_client.dart';
+import 'dart:convert';
 
 class loginController extends GetxController {
   static loginController get instance => Get.find();
@@ -24,10 +26,6 @@ class loginController extends GetxController {
   final Storage = GetStorage(); // Use SLocalStorage
 
   Future<void> login() async {
-    // Implement your login logic here, e.g., validate credentials,
-    // navigate to the next screen, or show an error message.
-    print('Login button pressed');
-
     try {
       // start loading
       SFullScreenLoader.openLoadingDialog("login", "");
@@ -43,24 +41,42 @@ class loginController extends GetxController {
         SFullScreenLoader.stopLoading();
         return;
       }
-      // send lgin request
+      // Log login attempt
+      print("Attempting login with email: ${emailController.text.trim()}");
+
+      // send login request
       final response = await AuthRepository.instance.loginUser(
-        mobileNumber: '${phone.value.countryCode}${phone.value.number}',
+        email: emailController.text.trim(),
         password: passwordController.text.trim(),
       );
-      print("response from auth.loginUSer$response");
-      if (response["token"] != null) {
-        consultantUserController.user.value =
-            ConsultantUserDataModel.fromJson(response["consultant"]);
-        // save user data
-        consultantUserController.saveUserRecordToLocal();
-        // Storage.write('profileData', response["consultant"]);
-        Storage.write('token', response["token"]);
+
+      // Log response
+      print("Login response: $response");
+
+      // Handle successful login - check different potential success indicators
+      if (response["message"] == "Login successful" ||
+          response["success"] == true ||
+          response["token"] != null) {
+        // Store user details in JSON format
+        Map<String, dynamic> userDetails = {
+          'id': response['user']?['id'] ?? 0,
+          'name': response['user']?['name'] ?? '',
+          'email': emailController.text.trim(),
+          'token': response['token'] ?? '',
+          'login_time': DateTime.now().toIso8601String(),
+          'status': response['user']?['status'] ?? 1,
+        };
+        print('User Details JSON: ${jsonEncode(userDetails)}');
+
+        // Save user details for later use
+        Storage.write('userDetails', userDetails);
+
+        // Set auth status
         Storage.write('authStatus', true);
         SFullScreenLoader.stopLoading();
         AuthRepository.instance.screenRedirect();
         SLoader.successSnackBar(
-            title: "Hurry!",
+            title: "Success!",
             message: response['message'] ?? "Login successful");
       } else {
         SFullScreenLoader.stopLoading();
@@ -68,25 +84,17 @@ class loginController extends GetxController {
             title: "Error",
             message: response['message'] ?? 'Login failed. Please try again.');
       }
-      // save user data
-      // final user = UserModel.fromJson(response['data']);
-      // await SLocalStorage.instance.saveUserData(user);
-      // SHelperFunctions.showSnackBar('Login successful');
-      // Get.offAll(() => const NavigationMenu());
     } catch (e) {
-      // SFullScreenLoader.stopLoading();
+      SFullScreenLoader.stopLoading();
       if (e is AppException) {
-        SFullScreenLoader.stopLoading();
         SLoader.errorSnackBar(title: 'Error', message: e.message.toString());
-        // Get.snackbar('Error', e.toString());
       } else if (e is BadRequestException) {
-        SFullScreenLoader.stopLoading();
         SLoader.errorSnackBar(title: 'Ops!', message: e.message.toString());
-        // Get.snackbar('Error', e.toString());
       } else {
         print('loginController error: $e');
+        SLoader.errorSnackBar(
+            title: 'Error', message: 'An error occurred during login');
       }
     }
   }
-
 }

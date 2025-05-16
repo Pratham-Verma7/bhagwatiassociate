@@ -28,7 +28,8 @@ class SLoginForm extends StatelessWidget {
               keyboardType: TextInputType.emailAddress,
               decoration: const InputDecoration(
                 labelText: 'Email Address',
-                prefixIcon: Icon(Icons.email, color: SColors.primary), // Email icon
+                prefixIcon:
+                    Icon(Icons.email, color: SColors.primary), // Email icon
                 focusedBorder: OutlineInputBorder(
                   borderSide: BorderSide(
                     color: SColors.primary,
@@ -40,20 +41,23 @@ class SLoginForm extends StatelessWidget {
               height: Sizes.spaceBtwInputFields,
             ),
             Obx(
-                  () => TextFormField(
+              () => TextFormField(
                 controller: controller.passwordController,
                 validator: (value) => SValidator.validatePassword(value),
                 cursorColor: Theme.of(context).primaryColor,
                 obscureText: controller.obscureText.value,
                 decoration: InputDecoration(
                   labelText: STexts.password,
-                  prefixIcon: const Icon(Icons.lock, color: SColors.primary), // Password icon
+                  prefixIcon: const Icon(Icons.lock,
+                      color: SColors.primary), // Password icon
                   suffixIcon: IconButton(
                     icon: Icon(
-                      controller.obscureText.value ? Iconsax.eye_slash : Iconsax.eye,
+                      controller.obscureText.value
+                          ? Iconsax.eye_slash
+                          : Iconsax.eye,
                     ),
                     onPressed: () => controller.obscureText.value =
-                    !controller.obscureText.value,
+                        !controller.obscureText.value,
                   ),
                 ),
               ),
@@ -79,12 +83,6 @@ class SLoginForm extends StatelessWidget {
                         style: Theme.of(context).textTheme.labelLarge),
                   ],
                 ),
-                // forget password
-                // TextButton(
-                //     onPressed: () {},
-                //     child: const Text(
-                //       STexts.fgtPwd,
-                //     )),
               ],
             ),
             const SizedBox(
@@ -94,8 +92,7 @@ class SLoginForm extends StatelessWidget {
                 width: double.infinity,
                 child: ElevatedButton(
                     style: Theme.of(context).elevatedButtonTheme.style,
-                    // onPressed: controller.login,
-                    onPressed: () => Get.offAll(() => const DashboardScreen()),
+                    onPressed: controller.login,
                     child: const Text(STexts.signIn))),
           ],
         ));
