@@ -204,6 +204,7 @@ class CustomTextField extends StatelessWidget {
   final bool isRequired;
   final TextInputType keyboardType;
   final int maxLines;
+  final String? hintText;
 
   const CustomTextField({
     Key? key,
@@ -212,6 +213,7 @@ class CustomTextField extends StatelessWidget {
     this.isRequired = false,
     this.keyboardType = TextInputType.text,
     this.maxLines = 1,
+    this.hintText,
   }) : super(key: key);
 
   @override
@@ -222,6 +224,7 @@ class CustomTextField extends StatelessWidget {
       maxLines: maxLines,
       decoration: InputDecoration(
         labelText: label,
+        hintText: hintText,
         border: const OutlineInputBorder(),
       ),
       validator: isRequired

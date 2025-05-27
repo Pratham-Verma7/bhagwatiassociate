@@ -65,19 +65,20 @@ class _OfficeVerificationFormState extends State<OfficeVerificationForm> {
     'Untraceable'
   ];
   final List<String> _statusOptions = ['Positive', 'Negative', 'Refer'];
-  final List<String> _premisesOptions = [
-    'Owned',
-    'Rented',
-    'Leased',
-    'Shared',
+  final List<String> _premisesOptions = ['Owned', 'Rented', 'Other'];
+  final List<String> _companyCategoryOptions = [
+    'Trending',
+    'Manufacturing',
     'Other'
   ];
-  final List<String> _companyCategoryOptions = [
-    'Small',
-    'Medium',
-    'Large',
-    'Corporate',
-    'Other'
+  final List<String> _applicationOccupationOptions = [
+    'Self-employed',
+    'Salaried',
+  ];
+  final List<String> _businessNatureOptions = [
+    'Trending',
+    'Manufacturing',
+    'Service Other',
   ];
 
   @override
@@ -196,6 +197,9 @@ class _OfficeVerificationFormState extends State<OfficeVerificationForm> {
     final bool includeDetailedData =
         easeOfLocation == 'Ease' || easeOfLocation == 'Difficult';
 
+    // Determine actual business nature value
+    String? businessNatureValue = _businessNatureController.text;
+
     final updatedVerification = widget.verification.copyWith(
       easeOfLocation: _easeOfLocationController.text,
       addressConfirm: int.tryParse(_addressConfirmController.text) ?? 0,
@@ -221,11 +225,11 @@ class _OfficeVerificationFormState extends State<OfficeVerificationForm> {
           ? int.tryParse(_employeeCountController.text)
           : null,
       salary: includeDetailedData ? int.tryParse(_salaryController.text) : null,
-      businessNature:
-          includeDetailedData ? _businessNatureController.text : null,
+      businessNature: includeDetailedData ? businessNatureValue : null,
       stockSeen: includeDetailedData ? _stockSeen : false,
       businessActivitySeen: includeDetailedData ? _businessActivitySeen : false,
       premises: includeDetailedData ? _premisesController.text : null,
+
       rentalAmount: includeDetailedData
           ? int.tryParse(_rentalAmountController.text)
           : null,
@@ -233,7 +237,9 @@ class _OfficeVerificationFormState extends State<OfficeVerificationForm> {
       companyCategory:
           includeDetailedData ? _companyCategoryController.text : null,
       companyCategoryOther:
-          includeDetailedData ? _companyCategoryOtherController.text : null,
+          includeDetailedData && _companyCategoryController.text == 'Other'
+              ? _companyCategoryOtherController.text
+              : null,
       applicationOccupation:
           includeDetailedData ? _applicationOccupationController.text : null,
 
@@ -256,10 +262,13 @@ class _OfficeVerificationFormState extends State<OfficeVerificationForm> {
 
   @override
   Widget build(BuildContext context) {
+    // Check if address is confirmed
+    final bool isAddressConfirmed = _addressConfirmController.text == '1';
+
     // Get the selected ease of location value
     final easeOfLocation = _easeOfLocationController.text;
-    final bool showDetailedForm =
-        easeOfLocation == 'Ease' || easeOfLocation == 'Difficult';
+    final bool showDetailedForm = isAddressConfirmed &&
+        (easeOfLocation == 'Ease' || easeOfLocation == 'Difficult');
 
     return Form(
       key: widget.formKey,
@@ -284,26 +293,33 @@ class _OfficeVerificationFormState extends State<OfficeVerificationForm> {
                 onChanged: (value) {
                   setState(() {
                     _addressConfirmController.text = value ? '1' : '0';
+                    // Reset ease of location if address is not confirmed
+                    if (!value && _easeOfLocationController.text.isNotEmpty) {
+                      _easeOfLocationController.text = '';
+                    }
                   });
                   _updateVerification();
                 },
               ),
               const SizedBox(height: 16),
 
-              // Ease of Location dropdown
-              CustomDropdownField(
-                label: 'Ease of Location',
-                value: _easeOfLocationController.text,
-                items: _easeOfLocationOptions,
-                isRequired: true,
-                onChanged: (value) {
-                  setState(() {
-                    _easeOfLocationController.text = value ?? '';
-                  });
-                  _updateVerification();
-                },
-              ),
-              const SizedBox(height: 16),
+              // Only show Ease of Location if address is confirmed
+              if (isAddressConfirmed) ...[
+                // Ease of Location dropdown
+                CustomDropdownField(
+                  label: 'Ease of Location',
+                  value: _easeOfLocationController.text,
+                  items: _easeOfLocationOptions,
+                  isRequired: true,
+                  onChanged: (value) {
+                    setState(() {
+                      _easeOfLocationController.text = value ?? '';
+                    });
+                    _updateVerification();
+                  },
+                ),
+                const SizedBox(height: 16),
+              ],
 
               // Only show these fields if ease of location is 'Ease' or 'Difficult'
               if (showDetailedForm) ...[
@@ -384,9 +400,16 @@ class _OfficeVerificationFormState extends State<OfficeVerificationForm> {
                   keyboardType: TextInputType.number,
                 ),
                 const SizedBox(height: 16),
-                CustomTextField(
-                  controller: _businessNatureController,
+                CustomDropdownField(
                   label: 'Nature of Business',
+                  value: _businessNatureController.text,
+                  items: _businessNatureOptions,
+                  onChanged: (value) {
+                    setState(() {
+                      _businessNatureController.text = value ?? '';
+                    });
+                    _updateVerification();
+                  },
                 ),
                 const SizedBox(height: 16),
                 SwitchField(
@@ -435,11 +458,13 @@ class _OfficeVerificationFormState extends State<OfficeVerificationForm> {
                   keyboardType: TextInputType.number,
                 ),
                 const SizedBox(height: 16),
-                CustomTextField(
-                  controller: _premiseOtherController,
-                  label: 'Premise Other Details',
-                ),
-                const SizedBox(height: 16),
+                if (_premisesController.text == 'Other') ...[
+                  CustomTextField(
+                    controller: _premiseOtherController,
+                    label: 'Specify Other Premises Type',
+                  ),
+                  const SizedBox(height: 16),
+                ],
                 CustomDropdownField(
                   label: 'Company Category',
                   value: _companyCategoryController.text,
@@ -452,14 +477,23 @@ class _OfficeVerificationFormState extends State<OfficeVerificationForm> {
                   },
                 ),
                 const SizedBox(height: 16),
-                CustomTextField(
-                  controller: _companyCategoryOtherController,
-                  label: 'Company Category Other',
-                ),
-                const SizedBox(height: 16),
-                CustomTextField(
-                  controller: _applicationOccupationController,
+                if (_companyCategoryController.text == 'Other') ...[
+                  CustomTextField(
+                    controller: _companyCategoryOtherController,
+                    label: 'Specify Other Company Category',
+                  ),
+                  const SizedBox(height: 16),
+                ],
+                CustomDropdownField(
                   label: 'Application Occupation',
+                  value: _applicationOccupationController.text,
+                  items: _applicationOccupationOptions,
+                  onChanged: (value) {
+                    setState(() {
+                      _applicationOccupationController.text = value ?? '';
+                    });
+                    _updateVerification();
+                  },
                 ),
                 const SizedBox(height: 16),
                 CustomTextField(

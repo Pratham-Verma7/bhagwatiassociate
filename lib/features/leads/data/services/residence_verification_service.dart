@@ -12,7 +12,7 @@ class ResidenceVerificationService {
       int leadId) async {
     try {
       final response = await SHttpHelper.get(
-          'api/get/residence_lead_verifications/lead_id/$leadId');
+          'api/get/residence_lead_verifications/$leadId');
 
       if (response is Map<String, dynamic>) {
         return ResidenceVerificationModel.fromJson(response);

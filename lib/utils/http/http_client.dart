@@ -122,11 +122,49 @@ class SHttpHelper {
   }
 
   static Future<Map<String, dynamic>> put(String endpoint, dynamic data) async {
+    print('Making PUT request to: $_baseUrl/$endpoint');
+    print('Request data: $data');
+
+    // Get stored token
+    final token = _authToken ?? GetStorage().read('token');
+    if (token == null) {
+      throw Exception('Authentication token not found');
+    }
+
     final response = await http.put(
       Uri.parse('$_baseUrl/$endpoint'),
       body: jsonEncode(data),
-      headers: _authHeaders,
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
     );
+
+    print('Response status code: ${response.statusCode}');
+    print('Response content-type: ${response.headers['content-type']}');
+    print(
+        'Response body preview: ${response.body.length > 100 ? response.body.substring(0, 100) + '...' : response.body}');
+
+    // Handle redirects
+    if (response.statusCode == 302) {
+      final location = response.headers['location'];
+      if (location != null) {
+        // Follow the redirect with the same headers
+        final redirectResponse = await http.put(
+          Uri.parse(location),
+          body: jsonEncode(data),
+          headers: {
+            'Authorization': 'Bearer $token',
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+        );
+        _updateCookies(redirectResponse);
+        return _handleResponse(redirectResponse);
+      }
+    }
+
     _updateCookies(response);
     return _handleResponse(response);
   }
@@ -156,6 +194,8 @@ class SHttpHelper {
           };
         }
         return jsonDecode(response.body);
+      } else if (response.statusCode == 302) {
+        throw Exception('Authentication required. Please login again.');
       } else if (response.statusCode == 400) {
         throw BadRequestException(
             isJsonResponse ? response.body : "Bad request");
@@ -174,7 +214,6 @@ class SHttpHelper {
         String errorMsg = 'Failed to load data: ${response.statusCode}';
         if (isJsonResponse) {
           try {
-            // Try to extract error message from response if it's in JSON format
             final errorBody = jsonDecode(response.body);
             if (errorBody['message'] != null) {
               errorMsg = errorBody['message'];
@@ -182,14 +221,11 @@ class SHttpHelper {
               errorMsg = errorBody['error'];
             }
           } catch (e) {
-            // JSON parse error
             errorMsg += ' - Error parsing response';
           }
         } else if (response.body.contains('MethodNotAllowedHttpException')) {
-          // Special case for Laravel method not allowed errors
           errorMsg = "Method not allowed. Please check API documentation.";
         } else {
-          // Non-JSON response
           errorMsg += ' - Non-JSON response received';
         }
         throw Exception(errorMsg);

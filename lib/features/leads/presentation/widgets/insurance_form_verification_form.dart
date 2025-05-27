@@ -57,20 +57,7 @@ class _InsuranceFormVerificationFormState
   late TextEditingController _neighbor34Controller;
   late TextEditingController _verifierNameController;
 
-  // Dropdown options
-  final List<String> _yesNoOptions = ['Yes', 'No'];
-  final List<String> _verificationStatusOptions = [
-    'Positive',
-    'Negative',
-    'Pending'
-  ];
-  final List<String> _residenceOwnershipOptions = [
-    'Owned',
-    'Rented',
-    'Company Provided',
-    'Other'
-  ];
-  final List<String> _healthConditionOptions = ['Good', 'Average', 'Poor'];
+
 
   @override
   void initState() {
@@ -279,17 +266,10 @@ class _InsuranceFormVerificationFormState
                 isRequired: true,
               ),
               const SizedBox(height: 16),
-              CustomDropdownField(
+              CustomTextField(
+                controller: _verificationStatusController,
                 label: 'Verification Status',
-                value: _verificationStatusController.text,
-                items: _verificationStatusOptions,
                 isRequired: true,
-                onChanged: (value) {
-                  setState(() {
-                    _verificationStatusController.text = value ?? '';
-                  });
-                  _updateVerification();
-                },
               ),
               const SizedBox(height: 16),
               InkWell(
@@ -361,43 +341,24 @@ class _InsuranceFormVerificationFormState
           SectionCard(
             title: 'Health and Policy Information',
             children: [
-              CustomDropdownField(
+              CustomTextField(
+                controller: _healthConditionController,
                 label: 'Health Condition',
-                value: _healthConditionController.text,
-                items: _healthConditionOptions,
                 isRequired: true,
-                onChanged: (value) {
-                  setState(() {
-                    _healthConditionController.text = value ?? '';
-                  });
-                  _updateVerification();
-                },
               ),
               const SizedBox(height: 16),
-              CustomDropdownField(
+              CustomTextField(
+                controller: _appliedForPolicyController,
                 label: 'Applied for Policy',
-                value: _appliedForPolicyController.text,
-                items: _yesNoOptions,
                 isRequired: true,
-                onChanged: (value) {
-                  setState(() {
-                    _appliedForPolicyController.text = value ?? '';
-                  });
-                  _updateVerification();
-                },
+                hintText: 'Yes/No',
               ),
               const SizedBox(height: 16),
-              CustomDropdownField(
+              CustomTextField(
+                controller: _receivedThePolicyController,
                 label: 'Received the Policy',
-                value: _receivedThePolicyController.text,
-                items: _yesNoOptions,
                 isRequired: true,
-                onChanged: (value) {
-                  setState(() {
-                    _receivedThePolicyController.text = value ?? '';
-                  });
-                  _updateVerification();
-                },
+                hintText: 'Yes/No',
               ),
               const SizedBox(height: 16),
               CustomTextField(
@@ -406,17 +367,11 @@ class _InsuranceFormVerificationFormState
                 maxLines: 3,
               ),
               const SizedBox(height: 16),
-              CustomDropdownField(
+              CustomTextField(
+                controller: _medicalDoneController,
                 label: 'Medical Done',
-                value: _medicalDoneController.text,
-                items: _yesNoOptions,
                 isRequired: true,
-                onChanged: (value) {
-                  setState(() {
-                    _medicalDoneController.text = value ?? '';
-                  });
-                  _updateVerification();
-                },
+                hintText: 'Yes/No',
               ),
             ],
           ),
@@ -455,17 +410,11 @@ class _InsuranceFormVerificationFormState
           SectionCard(
             title: 'Agent Information',
             children: [
-              CustomDropdownField(
+              CustomTextField(
+                controller: _laInformedTheAgentController,
                 label: 'LA Informed the Agent',
-                value: _laInformedTheAgentController.text,
-                items: _yesNoOptions,
                 isRequired: true,
-                onChanged: (value) {
-                  setState(() {
-                    _laInformedTheAgentController.text = value ?? '';
-                  });
-                  _updateVerification();
-                },
+                hintText: 'Yes/No',
               ),
               const SizedBox(height: 16),
               CustomTextField(
@@ -485,43 +434,25 @@ class _InsuranceFormVerificationFormState
           SectionCard(
             title: 'Documentation',
             children: [
-              CustomDropdownField(
+              CustomTextField(
+                controller: _insuredPhotoTakenController,
                 label: 'Insured Photo Taken',
-                value: _insuredPhotoTakenController.text,
-                items: _yesNoOptions,
                 isRequired: true,
-                onChanged: (value) {
-                  setState(() {
-                    _insuredPhotoTakenController.text = value ?? '';
-                  });
-                  _updateVerification();
-                },
+                hintText: 'Yes/No',
               ),
               const SizedBox(height: 16),
-              CustomDropdownField(
+              CustomTextField(
+                controller: _idProofTakenController,
                 label: 'ID Proof Taken',
-                value: _idProofTakenController.text,
-                items: _yesNoOptions,
                 isRequired: true,
-                onChanged: (value) {
-                  setState(() {
-                    _idProofTakenController.text = value ?? '';
-                  });
-                  _updateVerification();
-                },
+                hintText: 'Yes/No',
               ),
               const SizedBox(height: 16),
-              CustomDropdownField(
+              CustomTextField(
+                controller: _newAddressObtainedController,
                 label: 'New Address Obtained',
-                value: _newAddressObtainedController.text,
-                items: _yesNoOptions,
                 isRequired: true,
-                onChanged: (value) {
-                  setState(() {
-                    _newAddressObtainedController.text = value ?? '';
-                  });
-                  _updateVerification();
-                },
+                hintText: 'Yes/No',
               ),
               const SizedBox(height: 16),
               CustomTextField(
@@ -541,17 +472,11 @@ class _InsuranceFormVerificationFormState
                 isRequired: true,
               ),
               const SizedBox(height: 16),
-              CustomDropdownField(
+              CustomTextField(
+                controller: _residenceOwnershipController,
                 label: 'Residence Ownership',
-                value: _residenceOwnershipController.text,
-                items: _residenceOwnershipOptions,
                 isRequired: true,
-                onChanged: (value) {
-                  setState(() {
-                    _residenceOwnershipController.text = value ?? '';
-                  });
-                  _updateVerification();
-                },
+                hintText: 'Owned/Rented/Company Provided/Other',
               ),
               const SizedBox(height: 16),
               CustomTextField(

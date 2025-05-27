@@ -5,16 +5,24 @@ import 'package:bhagwatiassociate/features/leads/data/models/residence_verificat
 import 'package:bhagwatiassociate/features/leads/data/models/office_verification_model.dart';
 import 'package:bhagwatiassociate/features/leads/data/models/matrix_verification_model.dart';
 import 'package:bhagwatiassociate/features/leads/data/models/employee_address_verification_model.dart';
+import 'package:bhagwatiassociate/features/leads/data/models/insurance_form_verification_model.dart';
 import 'package:bhagwatiassociate/features/leads/data/services/residence_verification_service.dart';
 import 'package:bhagwatiassociate/features/leads/data/services/office_verification_service.dart';
 import 'package:bhagwatiassociate/features/leads/data/services/matrix_verification_service.dart';
 import 'package:bhagwatiassociate/features/leads/data/services/employee_address_verification_service.dart';
+import 'package:bhagwatiassociate/features/leads/data/services/insurance_form_verification_service.dart';
 import 'package:bhagwatiassociate/features/leads/presentation/widgets/residence_verification_form.dart';
 import 'package:bhagwatiassociate/features/leads/presentation/widgets/office_verification_form.dart';
 import 'package:bhagwatiassociate/features/leads/presentation/widgets/matrix_verification_form.dart';
 import 'package:bhagwatiassociate/features/leads/presentation/widgets/employee_address_verification_form.dart';
+import 'package:bhagwatiassociate/features/leads/presentation/widgets/insurance_form_verification_form.dart';
 import 'package:bhagwatiassociate/features/leads/presentation/widgets/verification_common_sections.dart';
 import 'package:bhagwatiassociate/features/leads/presentation/widgets/verification_form_widgets.dart';
+import 'package:bhagwatiassociate/utils/http/http_client.dart';
+import 'package:bhagwatiassociate/features/leads/presentation/widgets/image_upload_widget.dart';
+import 'package:bhagwatiassociate/features/leads/data/services/image_service.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:bhagwatiassociate/utils/services/offline_sync_service.dart';
 
 class LeadVerificationFormScreen extends StatefulWidget {
   final LeadModel lead;
@@ -38,12 +46,15 @@ class _LeadVerificationFormScreenState
   final _matrixVerificationService = MatrixVerificationService.instance;
   final _employeeAddressVerificationService =
       EmployeeAddressVerificationService.instance;
+  final _insuranceFormVerificationService =
+      InsuranceFormVerificationService.instance;
 
   // Verification models
   ResidenceVerificationModel? _residenceVerification;
   OfficeVerificationModel? _officeVerification;
   MatrixVerificationModel? _matrixVerification;
   EmployeeAddressVerificationModel? _employeeAddressVerification;
+  InsuranceFormVerificationModel? _insuranceFormVerification;
 
   // Determine which form to show based on verification type
   bool get _isResidenceVerification =>
@@ -55,6 +66,8 @@ class _LeadVerificationFormScreenState
       widget.lead.verificationType == 'matrix';
   bool get _isEmployeeAddressVerification =>
       widget.lead.verificationType == 'employee_address_verification';
+  bool get _isInsuranceFormVerification =>
+      widget.lead.verificationType == 'insurance_form';
 
   // Form controllers for calling and verifier sections
   final _dateOfCallingController = TextEditingController();
@@ -71,10 +84,13 @@ class _LeadVerificationFormScreenState
   final _agencyManagerNameController = TextEditingController();
   final _agencyNameController = TextEditingController();
 
+  List<String> _uploadedImagePaths = [];
+
   @override
   void initState() {
     super.initState();
     _loadVerificationData();
+    _loadImages();
   }
 
   @override
@@ -111,6 +127,8 @@ class _LeadVerificationFormScreenState
         await _loadMatrixVerificationData(widget.lead.id!);
       } else if (_isEmployeeAddressVerification) {
         await _loadEmployeeAddressVerificationData(widget.lead.id!);
+      } else if (_isInsuranceFormVerification) {
+        await _loadInsuranceFormVerificationData(widget.lead.id!);
       } else {
         throw Exception(
             'Unsupported verification type: ${widget.lead.verificationType}');
@@ -239,6 +257,35 @@ class _LeadVerificationFormScreenState
     }
   }
 
+  Future<void> _loadInsuranceFormVerificationData(int leadId) async {
+    try {
+      final verification = await _insuranceFormVerificationService
+          .getVerificationByLeadId(leadId);
+
+      if (verification != null) {
+        // Existing verification data found
+        setState(() {
+          _insuranceFormVerification = verification;
+        });
+      } else {
+        // No existing data, create new verification
+        setState(() {
+          _insuranceFormVerification = InsuranceFormVerificationModel.empty();
+          _insuranceFormVerification =
+              _insuranceFormVerification!.copyWith(leadId: leadId);
+        });
+      }
+    } catch (e) {
+      print('Error loading insurance form verification data: $e');
+      // Create a new empty verification
+      setState(() {
+        _insuranceFormVerification = InsuranceFormVerificationModel.empty();
+        _insuranceFormVerification =
+            _insuranceFormVerification!.copyWith(leadId: leadId);
+      });
+    }
+  }
+
   void _createEmptyVerifications() {
     // Create empty models for verification types
     if (_isResidenceVerification) {
@@ -264,6 +311,12 @@ class _LeadVerificationFormScreenState
         _employeeAddressVerification = EmployeeAddressVerificationModel.empty();
         _employeeAddressVerification =
             _employeeAddressVerification!.copyWith(leadId: widget.lead.id);
+      });
+    } else if (_isInsuranceFormVerification) {
+      setState(() {
+        _insuranceFormVerification = InsuranceFormVerificationModel.empty();
+        _insuranceFormVerification =
+            _insuranceFormVerification!.copyWith(leadId: widget.lead.id);
       });
     }
   }
@@ -293,6 +346,13 @@ class _LeadVerificationFormScreenState
     });
   }
 
+  void _updateInsuranceFormVerification(
+      InsuranceFormVerificationModel verification) {
+    setState(() {
+      _insuranceFormVerification = verification;
+    });
+  }
+
   Future<void> _submitForm() async {
     if (_formKey.currentState!.validate()) {
       setState(() {
@@ -301,26 +361,72 @@ class _LeadVerificationFormScreenState
 
       try {
         bool success = false;
+        String? tableName;
+        dynamic verificationData;
+        bool isOnline = true;
 
         if (_isResidenceVerification && _residenceVerification != null) {
-          success = await _residenceVerificationService
-              .submitVerification(_residenceVerification!);
+          tableName = 'residence_lead_verifications';
+          verificationData = _residenceVerification!.toJson();
         } else if (_isOfficeVerification && _officeVerification != null) {
-          success = await _officeVerificationService
-              .submitVerification(_officeVerification!);
+          tableName = 'office_lead_verifications';
+          verificationData = _officeVerification!.toJson();
         } else if (_isMatrixVerification && _matrixVerification != null) {
-          success = await _matrixVerificationService
-              .submitVerification(_matrixVerification!);
+          tableName = 'lead_matrix';
+          verificationData = _matrixVerification!.toJson();
         } else if (_isEmployeeAddressVerification &&
             _employeeAddressVerification != null) {
-          success = await _employeeAddressVerificationService
-              .submitVerification(_employeeAddressVerification!);
+          tableName = 'lead_employee_address_verification';
+          verificationData = _employeeAddressVerification!.toJson();
+        } else if (_isInsuranceFormVerification &&
+            _insuranceFormVerification != null) {
+          tableName = 'lead_insurance';
+          verificationData = _insuranceFormVerification!.toJson();
+        }
+
+        if (tableName != null && verificationData != null) {
+          // Check internet connectivity
+          final connectivityResult = await Connectivity().checkConnectivity();
+          isOnline = connectivityResult != ConnectivityResult.none;
+
+          if (isOnline) {
+            // Online submission
+            final addResponse =
+                await SHttpHelper.post('api/add/$tableName', verificationData);
+            if (addResponse != null &&
+                (addResponse['success'] == true || addResponse['id'] != null)) {
+              // Update lead status to 2 using PUT method
+              final leadId = widget.lead.id;
+              if (leadId != null) {
+                await SHttpHelper.put(
+                    'api/update/leads/$leadId', {'status': 2});
+              }
+              success = true;
+            }
+          } else {
+            // Offline submission
+            await OfflineSyncService.instance.saveOfflineLead(
+              leadId: widget.lead.id,
+              verificationType: widget.lead.verificationType ?? '',
+              formData: verificationData,
+            );
+            success = true;
+            Get.snackbar(
+              'Offline Mode',
+              'Lead saved offline. Will be submitted when internet connection is available.',
+              snackPosition: SnackPosition.BOTTOM,
+              backgroundColor: Colors.orange,
+              colorText: Colors.white,
+            );
+          }
         }
 
         if (success) {
           Get.snackbar(
             'Success',
-            'Verification data submitted successfully',
+            isOnline
+                ? 'Verification data submitted successfully'
+                : 'Verification data saved offline',
             snackPosition: SnackPosition.BOTTOM,
             backgroundColor: Colors.green,
             colorText: Colors.white,
@@ -351,6 +457,22 @@ class _LeadVerificationFormScreenState
     }
   }
 
+  Future<void> _loadImages() async {
+    if (widget.lead.id != null) {
+      final imageService = ImageService.instance;
+      final images = await imageService.getLeadImages(widget.lead.id!);
+      setState(() {
+        _uploadedImagePaths = images;
+      });
+    }
+  }
+
+  void _handleImagesUploaded(List<String> paths) {
+    setState(() {
+      _uploadedImagePaths.addAll(paths);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -377,6 +499,7 @@ class _LeadVerificationFormScreenState
                     typeOfVisit: widget.lead.typeOfVisit,
                     contactNo: widget.lead.contactNo,
                   ),
+
                   const SizedBox(height: 16),
 
                   // Appropriate verification form based on type
@@ -406,6 +529,13 @@ class _LeadVerificationFormScreenState
                       onUpdate: _updateEmployeeAddressVerification,
                       formKey: _formKey,
                     )
+                  else if (_isInsuranceFormVerification &&
+                      _insuranceFormVerification != null)
+                    InsuranceFormVerificationForm(
+                      verification: _insuranceFormVerification!,
+                      onUpdate: _updateInsuranceFormVerification,
+                      formKey: _formKey,
+                    )
                   else
                     Center(
                       child: Text(
@@ -413,13 +543,58 @@ class _LeadVerificationFormScreenState
                         style: const TextStyle(fontSize: 16),
                       ),
                     ),
+                  const SizedBox(height: 16),
+
+                  // Image Upload Section
+                  if (widget.lead.id != null)
+                    SectionCard(
+                      title: 'Images',
+                      children: [
+                        ImageUploadWidget(
+                          leadId: widget.lead.id!,
+                          title: 'Upload Verification Images',
+                          onImagesUploaded: _handleImagesUploaded,
+                        ),
+                        if (_uploadedImagePaths.isNotEmpty) ...[
+                          const SizedBox(height: 16),
+                          const Text(
+                            'Uploaded Images:',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          SizedBox(
+                            height: 100,
+                            child: ListView.builder(
+                              scrollDirection: Axis.horizontal,
+                              itemCount: _uploadedImagePaths.length,
+                              itemBuilder: (context, index) {
+                                return Padding(
+                                  padding: const EdgeInsets.only(right: 8),
+                                  child: Image.network(
+                                    'https://bhagwatiassociate.in/${_uploadedImagePaths[index]}',
+                                    height: 100,
+                                    width: 100,
+                                    fit: BoxFit.cover,
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  const SizedBox(height: 16),
                 ],
               ),
             ),
       bottomNavigationBar: (_isResidenceVerification ||
               _isOfficeVerification ||
               _isMatrixVerification ||
-              _isEmployeeAddressVerification)
+              _isEmployeeAddressVerification ||
+              _isInsuranceFormVerification)
           ? Container(
               padding: const EdgeInsets.all(16),
               child: ElevatedButton(

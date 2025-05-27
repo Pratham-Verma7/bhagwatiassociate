@@ -50,6 +50,22 @@ class _MatrixVerificationFormState extends State<MatrixVerificationForm> {
     'Upper Class'
   ];
   final List<String> _matrixStatusOptions = ['Positive', 'Negative', 'On Hold'];
+  final List<String> _addressProofOptions = [
+    'Gas Bill',
+    'Ration Card',
+    'Voter ID',
+    'Telephone Bill',
+    'Water Bill',
+    'Electricity Bill',
+    'Driving License',
+    'Passport',
+    'Bank Passbook',
+    'Aadhar Card',
+    'Other'
+  ];
+
+  // Additional controller for "Other" address proof
+  late TextEditingController _addressProofOtherController;
 
   @override
   void initState() {
@@ -94,6 +110,19 @@ class _MatrixVerificationFormState extends State<MatrixVerificationForm> {
         text: widget.verification.signAuthorizedMatrixRepresentative ?? '');
     _nameAuthorizedMatrixRepresentativeController = TextEditingController(
         text: widget.verification.nameAuthorizedMatrixRepresentative ?? '');
+    _matrixStatusController =
+        TextEditingController(text: widget.verification.matrixStatus ?? '');
+
+    // Initialize the "Other" address proof controller
+    _addressProofOtherController = TextEditingController(text: '');
+
+    // If the stored address proof isn't in the dropdown options, it's probably an "Other" value
+    if (_addressProofDetailsController.text.isNotEmpty &&
+        !_addressProofOptions.contains(_addressProofDetailsController.text) &&
+        _addressProofDetailsController.text != 'Other') {
+      _addressProofOtherController.text = _addressProofDetailsController.text;
+      _addressProofDetailsController.text = 'Other';
+    }
   }
 
   @override
@@ -115,11 +144,19 @@ class _MatrixVerificationFormState extends State<MatrixVerificationForm> {
     _signatureOfRespondentController.dispose();
     _signAuthorizedMatrixRepresentativeController.dispose();
     _nameAuthorizedMatrixRepresentativeController.dispose();
-
+    _matrixStatusController.dispose();
+    _addressProofOtherController.dispose();
     super.dispose();
   }
 
   void _updateVerification() {
+    // Determine actual address proof value
+    String addressProofValue = _addressProofDetailsController.text;
+    if (addressProofValue == 'Other' &&
+        _addressProofOtherController.text.isNotEmpty) {
+      addressProofValue = _addressProofOtherController.text;
+    }
+
     final updatedVerification = widget.verification.copyWith(
       candidateName: _candidateNameController.text,
       matrixRefNo: _matrixRefNoController.text,
@@ -130,7 +167,7 @@ class _MatrixVerificationFormState extends State<MatrixVerificationForm> {
       respondentName: _respondentNameController.text,
       respondentRelationship: _respondentRelationshipController.text,
       matrixStatus: _matrixStatusController.text,
-      addressProofDetails: _addressProofDetailsController.text,
+      addressProofDetails: addressProofValue,
       neighbourConfirmation: _neighbourConfirmationController.text,
       locationNature: _locationNatureController.text,
       landmark: _landmarkController.text,
@@ -288,11 +325,27 @@ class _MatrixVerificationFormState extends State<MatrixVerificationForm> {
                 },
               ),
               const SizedBox(height: 16),
-              CustomTextField(
-                controller: _addressProofDetailsController,
-                label: 'Address Proof Details',
+              CustomDropdownField(
+                label: 'Address Proof',
+                value: _addressProofDetailsController.text,
+                items: _addressProofOptions,
                 isRequired: true,
+                onChanged: (value) {
+                  setState(() {
+                    _addressProofDetailsController.text = value ?? '';
+                  });
+                  _updateVerification();
+                },
               ),
+              const SizedBox(height: 16),
+              if (_addressProofDetailsController.text == 'Other') ...[
+                CustomTextField(
+                  controller: _addressProofOtherController,
+                  label: 'Other Address Proof Details',
+                  isRequired: true,
+                ),
+                const SizedBox(height: 16),
+              ],
             ],
           ),
 
@@ -301,7 +354,8 @@ class _MatrixVerificationFormState extends State<MatrixVerificationForm> {
             title: 'Verification Details',
             children: [
               CustomDropdownField(
-                label: 'Neighbour Confirmation',
+                label:
+                    'If Residence is locked, confirmed with neighbours? (Yes/No/NA)',
                 value: _neighbourConfirmationController.text,
                 items: _neighbourConfirmationOptions,
                 isRequired: true,

@@ -10,8 +10,8 @@ class OfficeVerificationService {
   /// Get office verification by lead ID
   Future<OfficeVerificationModel?> getVerificationByLeadId(int leadId) async {
     try {
-      final response = await SHttpHelper.get(
-          'api/get/office_lead_verifications/lead_id/$leadId');
+      final response =
+          await SHttpHelper.get('api/get/office_lead_verifications/$leadId');
 
       if (response is Map<String, dynamic>) {
         return OfficeVerificationModel.fromJson(response);

@@ -11,7 +11,7 @@ class MatrixVerificationService {
   Future<MatrixVerificationModel?> getVerificationByLeadId(int leadId) async {
     try {
       final response =
-          await SHttpHelper.get('api/get/matrix_verifications/lead_id/$leadId');
+          await SHttpHelper.get('api/get/matrix_verifications/$leadId');
 
       if (response is Map<String, dynamic>) {
         return MatrixVerificationModel.fromJson(response);

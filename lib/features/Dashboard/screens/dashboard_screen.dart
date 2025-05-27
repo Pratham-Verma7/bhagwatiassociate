@@ -6,6 +6,7 @@ import 'package:bhagwatiassociate/utils/exceptions/appexceptions.dart';
 import 'package:flutter/material.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:bhagwatiassociate/features/leads/screens/lead_list.dart';
+import 'package:bhagwatiassociate/common/widgets/custom_app_bar.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({Key? key}) : super(key: key);
@@ -71,63 +72,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
       key: _scaffoldKey,
       drawer: const Sidebar(),
       backgroundColor: Color(0xFFF7FAFC),
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.menu, color: Colors.black),
-          onPressed: () {
-            _scaffoldKey.currentState?.openDrawer();
-          },
-        ),
-        title: const Text(
-          'Dashboard',
-          style: TextStyle(color: Colors.black, fontWeight: FontWeight.w600),
-        ),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            child: Container(
-              width: MediaQuery.of(context).size.width * 0.4,
-              decoration: BoxDecoration(
-                color: Colors.grey.shade100,
-                borderRadius: BorderRadius.circular(30),
-              ),
-              child: const TextField(
-                decoration: InputDecoration(
-                  hintText: 'Search...',
-                  prefixIcon: Icon(Icons.search),
-                  border: InputBorder.none,
-                  contentPadding: EdgeInsets.symmetric(vertical: 10),
-                ),
-              ),
-            ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.notifications_none, color: Colors.black),
-            onPressed: () {},
-          ),
-          Padding(
-            padding: const EdgeInsets.only(right: 16.0),
-            child: Row(
-              children: [
-                CircleAvatar(
-                  backgroundColor: Colors.purple,
-                  radius: 16,
-                  child: const Text(
-                    'YP',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                const Icon(Icons.keyboard_arrow_down, color: Colors.black),
-              ],
-            ),
-          ),
-        ],
-        backgroundColor: Colors.white,
-        elevation: 1,
+      appBar: CustomAppBar(
+        title: 'Dashboard',
+        scaffoldKey: _scaffoldKey,
+        onSearchChanged: (value) {
+          // TODO: Implement search functionality
+        },
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),

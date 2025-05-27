@@ -12,7 +12,7 @@ class EmployeeAddressVerificationService {
       int leadId) async {
     try {
       final response = await SHttpHelper.get(
-          'api/get/employee_address_verifications/lead_id/$leadId');
+          'api/get/employee_address_verifications/$leadId');
 
       if (response is Map<String, dynamic>) {
         return EmployeeAddressVerificationModel.fromJson(response);

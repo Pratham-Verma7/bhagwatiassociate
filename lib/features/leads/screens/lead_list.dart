@@ -7,6 +7,7 @@ import 'package:bhagwatiassociate/utils/exceptions/appexceptions.dart';
 import 'package:bhagwatiassociate/utils/http/http_client.dart';
 import 'package:bhagwatiassociate/features/leads/screens/lead_detail_screen.dart';
 import 'package:bhagwatiassociate/features/leads/presentation/screens/lead_verification_form_screen.dart';
+import 'package:bhagwatiassociate/common/widgets/custom_app_bar.dart';
 
 import '../../Dashboard/screens/widgets/sidebar.dart';
 
@@ -62,63 +63,12 @@ class _LeadListScreenState extends State<LeadListScreen> {
       key: _scaffoldKey,
       drawer: const Sidebar(),
       backgroundColor: Color(0xFFF7FAFC),
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.menu, color: Colors.black),
-          onPressed: () {
-            _scaffoldKey.currentState?.openDrawer();
-          },
-        ),
-        title: const Text(
-          'Dashboard',
-          style: TextStyle(color: Colors.black, fontWeight: FontWeight.w600),
-        ),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            child: Container(
-              width: MediaQuery.of(context).size.width * 0.4,
-              decoration: BoxDecoration(
-                color: Colors.grey.shade100,
-                borderRadius: BorderRadius.circular(30),
-              ),
-              child: const TextField(
-                decoration: InputDecoration(
-                  hintText: 'Search...',
-                  prefixIcon: Icon(Icons.search),
-                  border: InputBorder.none,
-                  contentPadding: EdgeInsets.symmetric(vertical: 10),
-                ),
-              ),
-            ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.notifications_none, color: Colors.black),
-            onPressed: () {},
-          ),
-          Padding(
-            padding: const EdgeInsets.only(right: 16.0),
-            child: Row(
-              children: [
-                CircleAvatar(
-                  backgroundColor: Colors.purple,
-                  radius: 16,
-                  child: const Text(
-                    'YP',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                const Icon(Icons.keyboard_arrow_down, color: Colors.black),
-              ],
-            ),
-          ),
-        ],
-        backgroundColor: Colors.white,
-        elevation: 1,
+      appBar: CustomAppBar(
+        title: 'Lead List',
+        scaffoldKey: _scaffoldKey,
+        onSearchChanged: (value) {
+          // TODO: Implement search functionality
+        },
       ),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -407,12 +357,13 @@ class _LeadListScreenState extends State<LeadListScreen> {
       orElse: () => LeadModel.empty(),
     );
 
-    // If this is a residence/office/matrix/employee_address verification lead, open the verification form directly
+    // If this is a residence/office/matrix/employee_address/insurance_form verification lead, open the verification form directly
     if (lead.verificationType == 'residence_verification' ||
         lead.verificationType == 'office_verification' ||
         lead.verificationType == 'matrix_verification' ||
         lead.verificationType == 'matrix' ||
-        lead.verificationType == 'employee_address_verification') {
+        lead.verificationType == 'employee_address_verification' ||
+        lead.verificationType == 'insurance_form') {
       Navigator.push(
         context,
         MaterialPageRoute(
