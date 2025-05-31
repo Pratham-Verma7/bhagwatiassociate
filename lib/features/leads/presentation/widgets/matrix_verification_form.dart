@@ -3,6 +3,9 @@ import 'package:intl/intl.dart';
 import 'package:bhagwatiassociate/features/leads/data/models/matrix_verification_model.dart';
 import 'package:bhagwatiassociate/features/leads/presentation/widgets/verification_form_widgets.dart';
 import 'package:bhagwatiassociate/features/leads/presentation/widgets/verification_common_sections.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class MatrixVerificationForm extends StatefulWidget {
   final MatrixVerificationModel verification;
@@ -37,9 +40,11 @@ class _MatrixVerificationFormState extends State<MatrixVerificationForm> {
   late TextEditingController _landmarkController;
   late TextEditingController _policeStationController;
   late TextEditingController _verificationCommentController;
-  late TextEditingController _signatureOfRespondentController;
-  late TextEditingController _signAuthorizedMatrixRepresentativeController;
   late TextEditingController _nameAuthorizedMatrixRepresentativeController;
+
+  // Local state for signature images
+  File? _signatureOfRespondentImageFile;
+  File? _signAuthorizedMatrixRepresentativeImageFile;
 
   // Dropdown options
   final List<String> _confirmationModeOptions = ['Written', 'Verbal'];
@@ -71,6 +76,17 @@ class _MatrixVerificationFormState extends State<MatrixVerificationForm> {
   void initState() {
     super.initState();
     _initControllers();
+    // Initialize image files if verification model already has URLs
+    if (widget.verification.signatureOfRespondent != null &&
+        widget.verification.signatureOfRespondent!.isNotEmpty) {
+      // We store URLs in the model, not local paths directly in the form state
+      // The parent screen is responsible for loading/displaying uploaded images.
+      // This form state will only hold *newly selected* images before submission.
+    }
+    if (widget.verification.signAuthorizedMatrixRepresentative != null &&
+        widget.verification.signAuthorizedMatrixRepresentative!.isNotEmpty) {
+      // Same as above for authorized representative signature
+    }
   }
 
   void _initControllers() {
@@ -104,10 +120,6 @@ class _MatrixVerificationFormState extends State<MatrixVerificationForm> {
         TextEditingController(text: widget.verification.policeStation ?? '');
     _verificationCommentController = TextEditingController(
         text: widget.verification.verificationComment ?? '');
-    _signatureOfRespondentController = TextEditingController(
-        text: widget.verification.signatureOfRespondent ?? '');
-    _signAuthorizedMatrixRepresentativeController = TextEditingController(
-        text: widget.verification.signAuthorizedMatrixRepresentative ?? '');
     _nameAuthorizedMatrixRepresentativeController = TextEditingController(
         text: widget.verification.nameAuthorizedMatrixRepresentative ?? '');
     _matrixStatusController =
@@ -141,8 +153,6 @@ class _MatrixVerificationFormState extends State<MatrixVerificationForm> {
     _landmarkController.dispose();
     _policeStationController.dispose();
     _verificationCommentController.dispose();
-    _signatureOfRespondentController.dispose();
-    _signAuthorizedMatrixRepresentativeController.dispose();
     _nameAuthorizedMatrixRepresentativeController.dispose();
     _matrixStatusController.dispose();
     _addressProofOtherController.dispose();
@@ -157,6 +167,7 @@ class _MatrixVerificationFormState extends State<MatrixVerificationForm> {
       addressProofValue = _addressProofOtherController.text;
     }
 
+    // Create updated model, storing local file paths for signatures if new images selected
     final updatedVerification = widget.verification.copyWith(
       candidateName: _candidateNameController.text,
       matrixRefNo: _matrixRefNoController.text,
@@ -173,9 +184,11 @@ class _MatrixVerificationFormState extends State<MatrixVerificationForm> {
       landmark: _landmarkController.text,
       policeStation: _policeStationController.text,
       verificationComment: _verificationCommentController.text,
-      signatureOfRespondent: _signatureOfRespondentController.text,
+      signatureOfRespondent: _signatureOfRespondentImageFile?.path ??
+          widget.verification.signatureOfRespondent,
       signAuthorizedMatrixRepresentative:
-          _signAuthorizedMatrixRepresentativeController.text,
+          _signAuthorizedMatrixRepresentativeImageFile?.path ??
+              widget.verification.signAuthorizedMatrixRepresentative,
       nameAuthorizedMatrixRepresentative:
           _nameAuthorizedMatrixRepresentativeController.text,
     );
@@ -183,247 +196,327 @@ class _MatrixVerificationFormState extends State<MatrixVerificationForm> {
     widget.onUpdate(updatedVerification);
   }
 
+  Future<void> _pickImage(Function(File?) onImagePicked) async {
+    final ImagePicker picker = ImagePicker();
+    final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+
+    if (image != null) {
+      final File imageFile = File(image.path);
+      onImagePicked(imageFile);
+      _updateVerification(); // Trigger form update with the new file path
+    }
+  }
+
+  Widget _buildImagePickerField(
+      {required String label,
+      File? imageFile,
+      String? imageUrl,
+      required void Function(File?) onImagePicked}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label,
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            ElevatedButton.icon(
+              onPressed: () => _pickImage(onImagePicked),
+              icon: const Icon(Icons.add_photo_alternate),
+              label: const Text('Select Image'),
+            ),
+            const SizedBox(width: 8),
+            // Display selected local image or uploaded network image
+            if (imageFile != null) // Display newly selected local image
+              Image.file(
+                imageFile,
+                height: 50,
+                width: 50,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) =>
+                    const Icon(Icons.error_outline, color: Colors.red),
+              )
+            else if (imageUrl != null &&
+                imageUrl.isNotEmpty) // Display already uploaded network image
+              CachedNetworkImage(
+                imageUrl: imageUrl,
+                height: 50,
+                width: 50,
+                fit: BoxFit.cover,
+                placeholder: (context, url) =>
+                    const CircularProgressIndicator(),
+                errorWidget: (context, url, error) =>
+                    const Icon(Icons.error_outline, color: Colors.red),
+              ),
+            // Option to clear selected image
+            if (imageFile != null) // Only for newly selected local image
+              IconButton(
+                icon: const Icon(Icons.remove_circle, color: Colors.red),
+                onPressed: () =>
+                    onImagePicked(null), // Clear the selected image
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Form(
       key: widget.formKey,
-      onChanged: _updateVerification,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Matrix Verification Form',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          const Divider(),
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Matrix Verification Form',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const Divider(),
 
-          // Basic Information
-          SectionCard(
-            title: 'Basic Information',
-            children: [
-              CustomTextField(
-                controller: _candidateNameController,
-                label: 'Candidate Name',
-                isRequired: true,
-              ),
-              const SizedBox(height: 16),
-
-              CustomTextField(
-                controller: _matrixRefNoController,
-                label: 'Matrix Reference Number',
-                isRequired: true,
-              ),
-              const SizedBox(height: 16),
-
-              // Verification Date and Time
-              InkWell(
-                onTap: () async {
-                  final DateTime? pickedDate = await showDatePicker(
-                    context: context,
-                    initialDate: _verificationDateTime,
-                    firstDate: DateTime(2000),
-                    lastDate: DateTime(2101),
-                  );
-
-                  if (pickedDate != null) {
-                    final TimeOfDay? pickedTime = await showTimePicker(
-                      context: context,
-                      initialTime:
-                          TimeOfDay.fromDateTime(_verificationDateTime),
-                    );
-
-                    if (pickedTime != null) {
-                      setState(() {
-                        _verificationDateTime = DateTime(
-                          pickedDate.year,
-                          pickedDate.month,
-                          pickedDate.day,
-                          pickedTime.hour,
-                          pickedTime.minute,
-                        );
-                      });
-                      _updateVerification();
-                    }
-                  }
-                },
-                child: InputDecorator(
-                  decoration: const InputDecoration(
-                    labelText: 'Verification Date & Time',
-                    border: OutlineInputBorder(),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(DateFormat('yyyy-MM-dd HH:mm')
-                          .format(_verificationDateTime)),
-                      const Icon(Icons.calendar_today),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-
-          // Address Information
-          SectionCard(
-            title: 'Address Information',
-            children: [
-              CustomTextField(
-                controller: _addressProvidedController,
-                label: 'Address Provided',
-                isRequired: true,
-                maxLines: 3,
-              ),
-              const SizedBox(height: 16),
-              CustomTextField(
-                controller: _addressConfirmedController,
-                label: 'Address Confirmed',
-                isRequired: true,
-                maxLines: 3,
-              ),
-              const SizedBox(height: 16),
-              CustomTextField(
-                controller: _landmarkController,
-                label: 'Landmark',
-                isRequired: true,
-              ),
-              const SizedBox(height: 16),
-              CustomTextField(
-                controller: _policeStationController,
-                label: 'Police Station',
-                isRequired: true,
-              ),
-            ],
-          ),
-
-          // Respondent Information
-          SectionCard(
-            title: 'Respondent Information',
-            children: [
-              CustomTextField(
-                controller: _respondentNameController,
-                label: 'Respondent Name',
-                isRequired: true,
-              ),
-              const SizedBox(height: 16),
-              CustomTextField(
-                controller: _respondentRelationshipController,
-                label: 'Respondent Relationship',
-                isRequired: true,
-              ),
-              const SizedBox(height: 16),
-              CustomDropdownField(
-                label: 'Confirmation Mode',
-                value: _confirmationModeController.text,
-                items: _confirmationModeOptions,
-                isRequired: true,
-                onChanged: (value) {
-                  setState(() {
-                    _confirmationModeController.text = value ?? '';
-                  });
-                  _updateVerification();
-                },
-              ),
-              const SizedBox(height: 16),
-              CustomDropdownField(
-                label: 'Address Proof',
-                value: _addressProofDetailsController.text,
-                items: _addressProofOptions,
-                isRequired: true,
-                onChanged: (value) {
-                  setState(() {
-                    _addressProofDetailsController.text = value ?? '';
-                  });
-                  _updateVerification();
-                },
-              ),
-              const SizedBox(height: 16),
-              if (_addressProofDetailsController.text == 'Other') ...[
+            // Basic Information
+            SectionCard(
+              title: 'Basic Information',
+              children: [
                 CustomTextField(
-                  controller: _addressProofOtherController,
-                  label: 'Other Address Proof Details',
+                  controller: _candidateNameController,
+                  label: 'Candidate Name',
                   isRequired: true,
                 ),
                 const SizedBox(height: 16),
+
+                CustomTextField(
+                  controller: _matrixRefNoController,
+                  label: 'Matrix Reference Number',
+                  isRequired: true,
+                ),
+                const SizedBox(height: 16),
+
+                // Verification Date and Time
+                InkWell(
+                  onTap: () async {
+                    final DateTime? pickedDate = await showDatePicker(
+                      context: context,
+                      initialDate: _verificationDateTime,
+                      firstDate: DateTime(2000),
+                      lastDate: DateTime(2101),
+                    );
+
+                    if (pickedDate != null) {
+                      final TimeOfDay? pickedTime = await showTimePicker(
+                        context: context,
+                        initialTime:
+                            TimeOfDay.fromDateTime(_verificationDateTime),
+                      );
+
+                      if (pickedTime != null) {
+                        setState(() {
+                          _verificationDateTime = DateTime(
+                            pickedDate.year,
+                            pickedDate.month,
+                            pickedDate.day,
+                            pickedTime.hour,
+                            pickedTime.minute,
+                          );
+                        });
+                        _updateVerification();
+                      }
+                    }
+                  },
+                  child: InputDecorator(
+                    decoration: const InputDecoration(
+                      labelText: 'Verification Date & Time',
+                      border: OutlineInputBorder(),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(DateFormat('yyyy-MM-dd HH:mm')
+                            .format(_verificationDateTime)),
+                        const Icon(Icons.calendar_today),
+                      ],
+                    ),
+                  ),
+                ),
               ],
-            ],
-          ),
+            ),
 
-          // Verification Details
-          SectionCard(
-            title: 'Verification Details',
-            children: [
-              CustomDropdownField(
-                label:
-                    'If Residence is locked, confirmed with neighbours? (Yes/No/NA)',
-                value: _neighbourConfirmationController.text,
-                items: _neighbourConfirmationOptions,
-                isRequired: true,
-                onChanged: (value) {
-                  setState(() {
-                    _neighbourConfirmationController.text = value ?? '';
-                  });
-                  _updateVerification();
-                },
-              ),
-              const SizedBox(height: 16),
-              CustomDropdownField(
-                label: 'Location Nature',
-                value: _locationNatureController.text,
-                items: _locationNatureOptions,
-                isRequired: true,
-                onChanged: (value) {
-                  setState(() {
-                    _locationNatureController.text = value ?? '';
-                  });
-                  _updateVerification();
-                },
-              ),
-              const SizedBox(height: 16),
-              CustomDropdownField(
-                label: 'Matrix Status',
-                value: _matrixStatusController.text,
-                items: _matrixStatusOptions,
-                isRequired: true,
-                onChanged: (value) {
-                  setState(() {
-                    _matrixStatusController.text = value ?? '';
-                  });
-                  _updateVerification();
-                },
-              ),
-              const SizedBox(height: 16),
-              CustomTextField(
-                controller: _verificationCommentController,
-                label: 'Verification Comment',
-                maxLines: 3,
-              ),
-            ],
-          ),
+            // Address Information
+            SectionCard(
+              title: 'Address Information',
+              children: [
+                CustomTextField(
+                  controller: _addressProvidedController,
+                  label: 'Address Provided',
+                  isRequired: true,
+                  maxLines: 3,
+                ),
+                const SizedBox(height: 16),
+                CustomTextField(
+                  controller: _addressConfirmedController,
+                  label: 'Address Confirmed',
+                  isRequired: true,
+                  maxLines: 3,
+                ),
+                const SizedBox(height: 16),
+                CustomTextField(
+                  controller: _landmarkController,
+                  label: 'Landmark',
+                  isRequired: true,
+                ),
+                const SizedBox(height: 16),
+                CustomTextField(
+                  controller: _policeStationController,
+                  label: 'Police Station',
+                  isRequired: true,
+                ),
+              ],
+            ),
 
-          // Authorization Section
-          SectionCard(
-            title: 'Authorization',
-            children: [
-              CustomTextField(
-                controller: _signatureOfRespondentController,
-                label: 'Signature of Respondent (URL or Base64)',
-              ),
-              const SizedBox(height: 16),
-              CustomTextField(
-                controller: _signAuthorizedMatrixRepresentativeController,
-                label:
-                    'Signature of Authorized Matrix Representative (URL or Base64)',
-              ),
-              const SizedBox(height: 16),
-              CustomTextField(
-                controller: _nameAuthorizedMatrixRepresentativeController,
-                label: 'Name of Authorized Matrix Representative',
-                isRequired: true,
-              ),
-            ],
-          ),
-        ],
+            // Respondent Information
+            SectionCard(
+              title: 'Respondent Information',
+              children: [
+                CustomTextField(
+                  controller: _respondentNameController,
+                  label: 'Respondent Name',
+                  isRequired: true,
+                ),
+                const SizedBox(height: 16),
+                CustomTextField(
+                  controller: _respondentRelationshipController,
+                  label: 'Respondent Relationship',
+                  isRequired: true,
+                ),
+                const SizedBox(height: 16),
+                CustomDropdownField(
+                  label: 'Confirmation Mode',
+                  value: _confirmationModeController.text,
+                  items: _confirmationModeOptions,
+                  isRequired: true,
+                  onChanged: (value) {
+                    setState(() {
+                      _confirmationModeController.text = value ?? '';
+                    });
+                    _updateVerification();
+                  },
+                ),
+                const SizedBox(height: 16),
+                CustomDropdownField(
+                  label: 'Address Proof',
+                  value: _addressProofDetailsController.text,
+                  items: _addressProofOptions,
+                  isRequired: true,
+                  onChanged: (value) {
+                    setState(() {
+                      _addressProofDetailsController.text = value ?? '';
+                    });
+                    _updateVerification();
+                  },
+                ),
+                const SizedBox(height: 16),
+                if (_addressProofDetailsController.text == 'Other') ...[
+                  CustomTextField(
+                    controller: _addressProofOtherController,
+                    label: 'Other Address Proof Details',
+                    isRequired: true,
+                  ),
+                  const SizedBox(height: 16),
+                ],
+              ],
+            ),
+
+            // Verification Details
+            SectionCard(
+              title: 'Verification Details',
+              children: [
+                CustomDropdownField(
+                  label:
+                      'If Residence is locked, confirmed with neighbours? (Yes/No/NA)',
+                  value: _neighbourConfirmationController.text,
+                  items: _neighbourConfirmationOptions,
+                  isRequired: true,
+                  onChanged: (value) {
+                    setState(() {
+                      _neighbourConfirmationController.text = value ?? '';
+                    });
+                    _updateVerification();
+                  },
+                ),
+                const SizedBox(height: 16),
+                CustomDropdownField(
+                  label: 'Location Nature',
+                  value: _locationNatureController.text,
+                  items: _locationNatureOptions,
+                  isRequired: true,
+                  onChanged: (value) {
+                    setState(() {
+                      _locationNatureController.text = value ?? '';
+                    });
+                    _updateVerification();
+                  },
+                ),
+                const SizedBox(height: 16),
+                CustomDropdownField(
+                  label: 'Matrix Status',
+                  value: _matrixStatusController.text,
+                  items: _matrixStatusOptions,
+                  isRequired: true,
+                  onChanged: (value) {
+                    setState(() {
+                      _matrixStatusController.text = value ?? '';
+                    });
+                    _updateVerification();
+                  },
+                ),
+                const SizedBox(height: 16),
+                CustomTextField(
+                  controller: _verificationCommentController,
+                  label: 'Verification Comment',
+                  maxLines: 3,
+                ),
+              ],
+            ),
+
+            // Signature Section
+            SectionCard(
+              title: 'Signatures',
+              children: [
+                _buildImagePickerField(
+                  label: 'Signature of Respondent',
+                  imageFile: _signatureOfRespondentImageFile,
+                  imageUrl: widget.verification.signatureOfRespondent,
+                  onImagePicked: (file) {
+                    setState(() {
+                      _signatureOfRespondentImageFile = file;
+                    });
+                    _updateVerification();
+                  },
+                ),
+                const SizedBox(height: 16),
+                _buildImagePickerField(
+                  label: 'Signature of Authorized Matrix Representative',
+                  imageFile: _signAuthorizedMatrixRepresentativeImageFile,
+                  imageUrl:
+                      widget.verification.signAuthorizedMatrixRepresentative,
+                  onImagePicked: (file) {
+                    setState(() {
+                      _signAuthorizedMatrixRepresentativeImageFile = file;
+                    });
+                    _updateVerification();
+                  },
+                ),
+                const SizedBox(height: 16),
+                CustomTextField(
+                  controller: _nameAuthorizedMatrixRepresentativeController,
+                  label: 'Name of Authorized Matrix Representative',
+                  isRequired: true,
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

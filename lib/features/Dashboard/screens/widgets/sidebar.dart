@@ -1,7 +1,6 @@
 import 'package:bhagwatiassociate/features/Dashboard/screens/dashboard_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:bhagwatiassociate/features/leads/screens/lead_list.dart';
-import 'package:bhagwatiassociate/features/leads/screens/lead_lookup_screen.dart';
 
 class Sidebar extends StatefulWidget {
   const Sidebar({Key? key}) : super(key: key);
@@ -56,23 +55,6 @@ class _SidebarState extends State<Sidebar> {
                   context,
                   MaterialPageRoute(
                       builder: (context) => const LeadListScreen()),
-                );
-              },
-            ),
-            _buildMenuItem(
-              context,
-              icon: Icons.search,
-              title: 'Lead Lookup',
-              isSelected: _selectedIndex == 2,
-              onTap: () {
-                setState(() {
-                  _selectedIndex = 2;
-                });
-                Navigator.pop(context);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (context) => const LeadLookupScreen()),
                 );
               },
             ),

@@ -5,7 +5,7 @@ import 'package:bhagwatiassociate/utils/exceptions/appexceptions.dart';
 import 'package:get_storage/get_storage.dart';
 
 class SHttpHelper {
-  static const String _baseUrl = 'https://bhagwatiassociate.in';
+  static const String _baseUrl = 'https://www.bhagwatiassociate.in';
   static Map<String, String> _cookies = {};
   static String? _authToken;
 

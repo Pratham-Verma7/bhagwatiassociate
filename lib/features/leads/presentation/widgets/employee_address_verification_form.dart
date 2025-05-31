@@ -3,6 +3,9 @@ import 'package:intl/intl.dart';
 import 'package:bhagwatiassociate/features/leads/data/models/employee_address_verification_model.dart';
 import 'package:bhagwatiassociate/features/leads/presentation/widgets/verification_form_widgets.dart';
 import 'package:bhagwatiassociate/features/leads/presentation/widgets/verification_common_sections.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class EmployeeAddressVerificationForm extends StatefulWidget {
   final EmployeeAddressVerificationModel verification;
@@ -39,9 +42,11 @@ class _EmployeeAddressVerificationFormState
   late TextEditingController _periodOfStayFromController;
   late TextEditingController _periodOfStayToController;
   late TextEditingController _noOfFamilyMemberController;
-  late TextEditingController _signatureController;
   late TextEditingController _remarksController;
   late TextEditingController _refNoController;
+
+  // Local state for signature image
+  File? _signatureEavImageFile;
 
   // Dropdown options
   final List<String> _propertyTypeOptions = [
@@ -92,8 +97,6 @@ class _EmployeeAddressVerificationFormState
         text: widget.verification.periodOfStayToEav ?? '');
     _noOfFamilyMemberController = TextEditingController(
         text: widget.verification.noOfFamilyMemberEav ?? '');
-    _signatureController =
-        TextEditingController(text: widget.verification.signatureEav ?? '');
     _remarksController =
         TextEditingController(text: widget.verification.remarksEav ?? '');
     _refNoController =
@@ -117,7 +120,6 @@ class _EmployeeAddressVerificationFormState
     _periodOfStayFromController.dispose();
     _periodOfStayToController.dispose();
     _noOfFamilyMemberController.dispose();
-    _signatureController.dispose();
     _remarksController.dispose();
     _refNoController.dispose();
     super.dispose();
@@ -140,7 +142,8 @@ class _EmployeeAddressVerificationFormState
       periodOfStayFromEav: _periodOfStayFromController.text,
       periodOfStayToEav: _periodOfStayToController.text,
       noOfFamilyMemberEav: _noOfFamilyMemberController.text,
-      signatureEav: _signatureController.text,
+      signatureEav:
+          _signatureEavImageFile?.path ?? widget.verification.signatureEav,
       remarksEav: _remarksController.text,
       refNoEav: _refNoController.text,
     );
@@ -148,26 +151,66 @@ class _EmployeeAddressVerificationFormState
     widget.onUpdate(updatedVerification);
   }
 
-  Future<void> _selectDate(TextEditingController controller) async {
-    final DateTime now = DateTime.now();
-    DateTime? initialDate;
-    try {
-      initialDate = DateFormat('yyyy-MM-dd').parse(controller.text);
-    } catch (e) {
-      initialDate = now;
-    }
+  Future<void> _pickImage(Function(File?) onImagePicked) async {
+    final ImagePicker picker = ImagePicker();
+    final XFile? image = await picker.pickImage(source: ImageSource.gallery);
 
-    final DateTime? picked = await showDatePicker(
-      context: context,
-      initialDate: initialDate,
-      firstDate: DateTime(1900),
-      lastDate: DateTime(2101),
+    if (image != null) {
+      final File imageFile = File(image.path);
+      onImagePicked(imageFile);
+      _updateVerification(); // Trigger form update with the new file path
+    }
+  }
+
+  Widget _buildImagePickerField({
+    required String label,
+    File? imageFile,
+    String? imageUrl,
+    required void Function(File?) onImagePicked,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label,
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            ElevatedButton.icon(
+              onPressed: () => _pickImage(onImagePicked),
+              icon: const Icon(Icons.add_photo_alternate),
+              label: const Text('Select Image'),
+            ),
+            const SizedBox(width: 8),
+            if (imageFile != null)
+              Image.file(
+                imageFile,
+                height: 50,
+                width: 50,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) =>
+                    const Icon(Icons.error_outline, color: Colors.red),
+              )
+            else if (imageUrl != null && imageUrl.isNotEmpty)
+              CachedNetworkImage(
+                imageUrl: imageUrl,
+                height: 50,
+                width: 50,
+                fit: BoxFit.cover,
+                placeholder: (context, url) =>
+                    const CircularProgressIndicator(),
+                errorWidget: (context, url, error) =>
+                    const Icon(Icons.error_outline, color: Colors.red),
+              ),
+            if (imageFile != null)
+              IconButton(
+                icon: const Icon(Icons.remove_circle, color: Colors.red),
+                onPressed: () => onImagePicked(null),
+              ),
+          ],
+        ),
+      ],
     );
-
-    if (picked != null) {
-      controller.text = DateFormat('yyyy-MM-dd').format(picked);
-      _updateVerification();
-    }
   }
 
   @override
@@ -390,9 +433,16 @@ class _EmployeeAddressVerificationFormState
           SectionCard(
             title: 'Additional Information',
             children: [
-              CustomTextField(
-                controller: _signatureController,
-                label: 'Signature (URL or Base64)',
+              _buildImagePickerField(
+                label: 'Signature',
+                imageFile: _signatureEavImageFile,
+                imageUrl: widget.verification.signatureEav,
+                onImagePicked: (file) {
+                  setState(() {
+                    _signatureEavImageFile = file;
+                  });
+                  _updateVerification();
+                },
               ),
               const SizedBox(height: 16),
               CustomTextField(
@@ -405,5 +455,27 @@ class _EmployeeAddressVerificationFormState
         ],
       ),
     );
+  }
+
+  Future<void> _selectDate(TextEditingController controller) async {
+    final DateTime now = DateTime.now();
+    DateTime? initialDate;
+    try {
+      initialDate = DateFormat('yyyy-MM-dd').parse(controller.text);
+    } catch (e) {
+      initialDate = now;
+    }
+
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: initialDate,
+      firstDate: DateTime(1900),
+      lastDate: DateTime(2101),
+    );
+
+    if (picked != null) {
+      controller.text = DateFormat('yyyy-MM-dd').format(picked);
+      _updateVerification();
+    }
   }
 }

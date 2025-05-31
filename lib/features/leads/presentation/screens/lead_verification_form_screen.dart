@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:bhagwatiassociate/features/leads/data/models/lead_model.dart';
@@ -23,6 +24,9 @@ import 'package:bhagwatiassociate/features/leads/presentation/widgets/image_uplo
 import 'package:bhagwatiassociate/features/leads/data/services/image_service.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:bhagwatiassociate/utils/services/offline_sync_service.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:path/path.dart' as path_lib;
+import 'package:bhagwatiassociate/utils/database/database_helper.dart';
 
 class LeadVerificationFormScreen extends StatefulWidget {
   final LeadModel lead;
@@ -48,6 +52,8 @@ class _LeadVerificationFormScreenState
       EmployeeAddressVerificationService.instance;
   final _insuranceFormVerificationService =
       InsuranceFormVerificationService.instance;
+  final _imageService = ImageService.instance;
+  final _dbHelper = DatabaseHelper.instance;
 
   // Verification models
   ResidenceVerificationModel? _residenceVerification;
@@ -84,13 +90,15 @@ class _LeadVerificationFormScreenState
   final _agencyManagerNameController = TextEditingController();
   final _agencyNameController = TextEditingController();
 
-  List<String> _uploadedImagePaths = [];
+  // Lists for selected and uploaded images
+  final List<File> _imagesToUpload = [];
+  List<String> _uploadedImageUrls = [];
 
   @override
   void initState() {
     super.initState();
     _loadVerificationData();
-    _loadImages();
+    _loadImages(); // Load already uploaded images
   }
 
   @override
@@ -373,24 +381,170 @@ class _LeadVerificationFormScreenState
           verificationData = _officeVerification!.toJson();
         } else if (_isMatrixVerification && _matrixVerification != null) {
           tableName = 'lead_matrix';
+          // Handle signature image uploads for Matrix Verification
+          if (isOnline) {
+            String? respondentSignatureUrl =
+                _matrixVerification!.signatureOfRespondent;
+            String? authorizedSignatureUrl =
+                _matrixVerification!.signAuthorizedMatrixRepresentative;
+
+            // Check if signatures are local file paths (not URLs)
+            if (respondentSignatureUrl != null &&
+                !respondentSignatureUrl.startsWith('http')) {
+              try {
+                final uploadedUrl = await _imageService
+                    .uploadSingleImageForSync(File(respondentSignatureUrl));
+                respondentSignatureUrl = uploadedUrl;
+              } catch (e) {
+                print('Error uploading respondent signature: $e');
+                Get.snackbar(
+                  'Error',
+                  'Failed to upload respondent signature',
+                  snackPosition: SnackPosition.BOTTOM,
+                );
+                return;
+              }
+            }
+
+            if (authorizedSignatureUrl != null &&
+                !authorizedSignatureUrl.startsWith('http')) {
+              try {
+                final uploadedUrl = await _imageService
+                    .uploadSingleImageForSync(File(authorizedSignatureUrl));
+                authorizedSignatureUrl = uploadedUrl;
+              } catch (e) {
+                print('Error uploading authorized signature: $e');
+                Get.snackbar(
+                  'Error',
+                  'Failed to upload authorized signature',
+                  snackPosition: SnackPosition.BOTTOM,
+                );
+                return;
+              }
+            }
+
+            // Update verification model with uploaded URLs
+            _matrixVerification = _matrixVerification!.copyWith(
+              signatureOfRespondent: respondentSignatureUrl,
+              signAuthorizedMatrixRepresentative: authorizedSignatureUrl,
+            );
+          }
           verificationData = _matrixVerification!.toJson();
         } else if (_isEmployeeAddressVerification &&
             _employeeAddressVerification != null) {
           tableName = 'lead_employee_address_verification';
+          // Handle signature image upload for Employee Address Verification
+          if (isOnline) {
+            String? signatureUrl = _employeeAddressVerification!.signatureEav;
+
+            // Check if signature is a local file path (not URL)
+            if (signatureUrl != null && !signatureUrl.startsWith('http')) {
+              try {
+                final uploadedUrl = await _imageService
+                    .uploadSingleImageForSync(File(signatureUrl));
+                signatureUrl = uploadedUrl;
+              } catch (e) {
+                print('Error uploading employee address signature: $e');
+                Get.snackbar(
+                  'Error',
+                  'Failed to upload employee address signature',
+                  snackPosition: SnackPosition.BOTTOM,
+                );
+                return;
+              }
+            }
+
+            // Update verification model with uploaded URL
+            _employeeAddressVerification =
+                _employeeAddressVerification!.copyWith(
+              signatureEav: signatureUrl,
+            );
+          }
           verificationData = _employeeAddressVerification!.toJson();
         } else if (_isInsuranceFormVerification &&
             _insuranceFormVerification != null) {
           tableName = 'lead_insurance';
+          // Handle insured photo upload for Insurance Form Verification
+          if (isOnline) {
+            String? insuredPhotoUrl =
+                _insuranceFormVerification!.insuredPhotoTakenIf;
+
+            // Check if photo is a local file path (not URL)
+            if (insuredPhotoUrl != null &&
+                !insuredPhotoUrl.startsWith('http')) {
+              try {
+                final uploadedUrl = await _imageService
+                    .uploadSingleImageForSync(File(insuredPhotoUrl));
+                insuredPhotoUrl = uploadedUrl;
+              } catch (e) {
+                print('Error uploading insured photo: $e');
+                Get.snackbar(
+                  'Error',
+                  'Failed to upload insured photo',
+                  snackPosition: SnackPosition.BOTTOM,
+                );
+                return;
+              }
+            }
+
+            // Update verification model with uploaded URL
+            _insuranceFormVerification = _insuranceFormVerification!.copyWith(
+              insuredPhotoTakenIf: insuredPhotoUrl,
+            );
+          }
           verificationData = _insuranceFormVerification!.toJson();
         }
 
-        if (tableName != null && verificationData != null) {
-          // Check internet connectivity
-          final connectivityResult = await Connectivity().checkConnectivity();
-          isOnline = connectivityResult != ConnectivityResult.none;
+        // Check internet connectivity
+        final connectivityResult = await Connectivity().checkConnectivity();
+        isOnline = connectivityResult != ConnectivityResult.none;
 
-          if (isOnline) {
-            // Online submission
+        if (isOnline) {
+          bool imageUploadSuccess = false;
+          // --- Image Upload and Saving (Online) ---
+          if (_imagesToUpload.isNotEmpty && widget.lead.id != null) {
+            try {
+              final uploadedImageUrls = await _imageService.uploadImages(
+                widget.lead.id!,
+                _imagesToUpload,
+              );
+
+              for (final imageUrl in uploadedImageUrls) {
+                // Extract the path from the full URL
+                final uri = Uri.parse(imageUrl);
+                final imagePath =
+                    'api_files/${uri.pathSegments.last}'; // e.g., api_files/image_name.jpg
+
+                // Save image path to the 'images' table
+                await SHttpHelper.post('api/add/images', {
+                  'lead_id': widget.lead.id,
+                  'path': imagePath,
+                  'created_at': DateTime.now().toIso8601String(),
+                  'updated_at': DateTime.now().toIso8601String(),
+                });
+              }
+              // Clear images to upload after successful upload and saving
+              setState(() {
+                _imagesToUpload.clear();
+              });
+              imageUploadSuccess = true;
+              _loadImages(); // Refresh the list of uploaded images
+            } catch (e) {
+              print('Error uploading or saving images: $e');
+              imageUploadSuccess = false;
+              Get.snackbar(
+                'Image Upload Error',
+                'Failed to upload or save some images: $e',
+                snackPosition: SnackPosition.BOTTOM,
+                backgroundColor: Colors.red,
+                colorText: Colors.white,
+              );
+            }
+          }
+          // --- End Image Upload and Saving (Online) ---
+
+          if (tableName != null && verificationData != null) {
+            // Online submission of verification data
             final addResponse =
                 await SHttpHelper.post('api/add/$tableName', verificationData);
             if (addResponse != null &&
@@ -402,9 +556,29 @@ class _LeadVerificationFormScreenState
                     'api/update/leads/$leadId', {'status': 2});
               }
               success = true;
+            } else {
+              success = false; // Main form submission failed
             }
           } else {
-            // Offline submission
+            // Handle case where no verification data is available to submit
+            if (_imagesToUpload.isEmpty && _uploadedImageUrls.isEmpty) {
+              Get.snackbar(
+                'No Data',
+                'No verification data or images to submit.',
+                snackPosition: SnackPosition.BOTTOM,
+                backgroundColor: Colors.orange,
+                colorText: Colors.white,
+              );
+              success = false; // No data to submit
+            } else {
+              // Images were handled, but no main verification data. Consider this a success if images uploaded.
+              success = imageUploadSuccess;
+            }
+          }
+        } else {
+          // Offline mode
+          // --- Offline Saving (Form Data) ---
+          if (tableName != null && verificationData != null) {
             await OfflineSyncService.instance.saveOfflineLead(
               leadId: widget.lead.id,
               verificationType: widget.lead.verificationType ?? '',
@@ -418,33 +592,85 @@ class _LeadVerificationFormScreenState
               backgroundColor: Colors.orange,
               colorText: Colors.white,
             );
+          } else {
+            success = false; // Cannot save main form data offline if empty
+          }
+
+          // --- Offline Saving (Images) ---
+          if (_imagesToUpload.isNotEmpty && widget.lead.id != null) {
+            for (final imageFile in _imagesToUpload) {
+              try {
+                await _dbHelper.insertOfflineImage({
+                  'lead_id': widget.lead.id,
+                  'local_path': imageFile.path,
+                });
+              } catch (e) {
+                print('Error saving image offline: $e');
+                Get.snackbar(
+                  'Offline Image Save Error',
+                  'Failed to save some images offline: $e',
+                  snackPosition: SnackPosition.BOTTOM,
+                  backgroundColor: Colors.red,
+                  colorText: Colors.white,
+                );
+              }
+            }
+            setState(() {
+              _imagesToUpload.clear(); // Clear images after saving them offline
+            });
+            // Even if form data wasn't saved, if images were saved offline, consider it a partial success for user feedback
+            if (!success) success = _imagesToUpload.isNotEmpty;
+          }
+
+          // Show a message if neither form data nor images were saved offline
+          if (!success) {
+            Get.snackbar(
+              'No Data Saved',
+              'No verification data or images were saved offline.',
+              snackPosition: SnackPosition.BOTTOM,
+              backgroundColor: Colors.orange,
+              colorText: Colors.white,
+            );
           }
         }
 
-        if (success) {
+        // Final success/error messages based on overall outcome
+        if (isOnline && success) {
           Get.snackbar(
             'Success',
-            isOnline
-                ? 'Verification data submitted successfully'
-                : 'Verification data saved offline',
+            'Verification data and images submitted successfully',
             snackPosition: SnackPosition.BOTTOM,
             backgroundColor: Colors.green,
             colorText: Colors.white,
           );
           Navigator.pop(context);
-        } else {
+        } else if (!isOnline && success) {
+          // Success message for offline save (either form data or images)
+          // The specific offline save success snackbar is shown within the offline blocks above.
+          // We can add a general one here if needed, but it might be redundant.
+          // Navigator.pop(context); // Decide if you want to pop on successful offline save
+        } else if (isOnline &&
+            !success &&
+            (tableName != null || _imagesToUpload.isNotEmpty)) {
+          // Show a general failure message for online mode if submission was attempted
           Get.snackbar(
             'Error',
-            'Failed to submit verification data',
+            'Failed to submit verification data or images online.',
             snackPosition: SnackPosition.BOTTOM,
             backgroundColor: Colors.red,
             colorText: Colors.white,
           );
+        } else if (!isOnline &&
+            !success &&
+            (tableName != null || _imagesToUpload.isNotEmpty)) {
+          // Show a message if offline save failed but data was present
+          // Already handled by the specific offline save error snackbars above.
         }
       } catch (e) {
+        // Catch any unexpected errors during the submission process
         Get.snackbar(
           'Error',
-          'Error: $e',
+          'An unexpected error occurred: $e',
           snackPosition: SnackPosition.BOTTOM,
           backgroundColor: Colors.red,
           colorText: Colors.white,
@@ -459,18 +685,68 @@ class _LeadVerificationFormScreenState
 
   Future<void> _loadImages() async {
     if (widget.lead.id != null) {
-      final imageService = ImageService.instance;
-      final images = await imageService.getLeadImages(widget.lead.id!);
-      setState(() {
-        _uploadedImagePaths = images;
-      });
+      try {
+        final imageService = ImageService.instance;
+        // Assuming the backend endpoint for fetching images is now correct and returns full URLs
+        final images = await imageService.getLeadImages(widget.lead.id!);
+        setState(() {
+          _uploadedImageUrls = images;
+        });
+      } catch (e) {
+        print('Error loading uploaded images: $e');
+        // Handle error loading images, maybe show a message or empty the list
+        setState(() {
+          _uploadedImageUrls = [];
+        });
+      }
     }
   }
 
-  void _handleImagesUploaded(List<String> paths) {
-    setState(() {
-      _uploadedImagePaths.addAll(paths);
-    });
+  // Widget to build uploaded image display
+  Widget _buildUploadedImageDisplay(String imageUrl) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: Stack(
+        children: [
+          CachedNetworkImage(
+            imageUrl: imageUrl,
+            height: 100,
+            width: 100,
+            fit: BoxFit.cover,
+            placeholder: (context, url) => Container(
+              height: 100,
+              width: 100,
+              color: Colors.grey[200],
+              child: const Center(
+                child: CircularProgressIndicator(),
+              ),
+            ),
+            errorWidget: (context, url, error) => Container(
+              height: 100,
+              width: 100,
+              color: Colors.grey[200],
+              child: const Icon(
+                Icons.error_outline,
+                color: Colors.red,
+                size: 30,
+              ),
+            ),
+          ),
+          // Option to remove already uploaded images? Requires backend delete endpoint
+          // Positioned(
+          //   right: 0,
+          //   top: 0,
+          //   child: IconButton(
+          //     icon: const Icon(
+          //       Icons.remove_circle,
+          //       color: Colors.red,
+          //     ),
+          //     onPressed: () => _removeUploadedImage(index), // Need to implement remove logic
+          //   ),
+          // ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -545,17 +821,19 @@ class _LeadVerificationFormScreenState
                     ),
                   const SizedBox(height: 16),
 
-                  // Image Upload Section
+                  // Image Upload Section (for selecting new images)
                   if (widget.lead.id != null)
                     SectionCard(
                       title: 'Images',
                       children: [
                         ImageUploadWidget(
                           leadId: widget.lead.id!,
-                          title: 'Upload Verification Images',
-                          onImagesUploaded: _handleImagesUploaded,
+                          title: 'Select Images to Upload',
+                          selectedImages:
+                              _imagesToUpload, // Pass the list to the widget
                         ),
-                        if (_uploadedImagePaths.isNotEmpty) ...[
+                        // Display already uploaded images here
+                        if (_uploadedImageUrls.isNotEmpty) ...[
                           const SizedBox(height: 16),
                           const Text(
                             'Uploaded Images:',
@@ -569,17 +847,10 @@ class _LeadVerificationFormScreenState
                             height: 100,
                             child: ListView.builder(
                               scrollDirection: Axis.horizontal,
-                              itemCount: _uploadedImagePaths.length,
+                              itemCount: _uploadedImageUrls.length,
                               itemBuilder: (context, index) {
-                                return Padding(
-                                  padding: const EdgeInsets.only(right: 8),
-                                  child: Image.network(
-                                    'https://bhagwatiassociate.in/${_uploadedImagePaths[index]}',
-                                    height: 100,
-                                    width: 100,
-                                    fit: BoxFit.cover,
-                                  ),
-                                );
+                                return _buildUploadedImageDisplay(
+                                    _uploadedImageUrls[index]);
                               },
                             ),
                           ),
@@ -594,7 +865,11 @@ class _LeadVerificationFormScreenState
               _isOfficeVerification ||
               _isMatrixVerification ||
               _isEmployeeAddressVerification ||
-              _isInsuranceFormVerification)
+              _isInsuranceFormVerification || // Check if any form is displayed
+              _imagesToUpload
+                  .isNotEmpty || // Also show submit if there are images to upload
+              _uploadedImageUrls
+                  .isNotEmpty) // Also show submit if there are already uploaded images to view
           ? Container(
               padding: const EdgeInsets.all(16),
               child: ElevatedButton(

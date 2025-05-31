@@ -3,6 +3,9 @@ import 'package:intl/intl.dart';
 import 'package:bhagwatiassociate/features/leads/data/models/insurance_form_verification_model.dart';
 import 'package:bhagwatiassociate/features/leads/presentation/widgets/verification_form_widgets.dart';
 import 'package:bhagwatiassociate/features/leads/presentation/widgets/verification_common_sections.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class InsuranceFormVerificationForm extends StatefulWidget {
   final InsuranceFormVerificationModel verification;
@@ -43,7 +46,6 @@ class _InsuranceFormVerificationFormState
   late TextEditingController _laInformedTheAgentController;
   late TextEditingController _existingInsuranceAgentController;
   late TextEditingController _nomineeRelationController;
-  late TextEditingController _insuredPhotoTakenController;
   late TextEditingController _idProofTakenController;
   late TextEditingController _newAddressObtainedController;
   late TextEditingController _residenceLocalityController;
@@ -57,7 +59,8 @@ class _InsuranceFormVerificationFormState
   late TextEditingController _neighbor34Controller;
   late TextEditingController _verifierNameController;
 
-
+  // Local state for insured photo
+  File? _insuredPhotoTakenImageFile;
 
   @override
   void initState() {
@@ -104,8 +107,6 @@ class _InsuranceFormVerificationFormState
         text: widget.verification.existingInsuranceAgentIf ?? '');
     _nomineeRelationController = TextEditingController(
         text: widget.verification.nomineeRelationIf ?? '');
-    _insuredPhotoTakenController = TextEditingController(
-        text: widget.verification.insuredPhotoTakenIf ?? '');
     _idProofTakenController =
         TextEditingController(text: widget.verification.idProofTakenIf ?? '');
     _newAddressObtainedController = TextEditingController(
@@ -153,7 +154,6 @@ class _InsuranceFormVerificationFormState
     _laInformedTheAgentController.dispose();
     _existingInsuranceAgentController.dispose();
     _nomineeRelationController.dispose();
-    _insuredPhotoTakenController.dispose();
     _idProofTakenController.dispose();
     _newAddressObtainedController.dispose();
     _residenceLocalityController.dispose();
@@ -190,7 +190,6 @@ class _InsuranceFormVerificationFormState
       laInformedTheAgentIf: _laInformedTheAgentController.text,
       existingInsuranceAgentIf: _existingInsuranceAgentController.text,
       nomineeRelationIf: _nomineeRelationController.text,
-      insuredPhotoTakenIf: _insuredPhotoTakenController.text,
       idProofTakenIf: _idProofTakenController.text,
       newAddressObtainedIf: _newAddressObtainedController.text,
       residenceLocalityIf: _residenceLocalityController.text,
@@ -203,9 +202,375 @@ class _InsuranceFormVerificationFormState
       neighbor12If: _neighbor12Controller.text,
       neighbor34If: _neighbor34Controller.text,
       verifierNameIf: _verifierNameController.text,
+      insuredPhotoTakenIf: _insuredPhotoTakenImageFile?.path ??
+          widget.verification.insuredPhotoTakenIf,
     );
 
     widget.onUpdate(updatedVerification);
+  }
+
+  Future<void> _pickImage(Function(File?) onImagePicked) async {
+    final ImagePicker picker = ImagePicker();
+    final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+
+    if (image != null) {
+      final File imageFile = File(image.path);
+      onImagePicked(imageFile);
+      _updateVerification(); // Trigger form update with the new file path
+    }
+  }
+
+  Widget _buildImagePickerField({
+    required String label,
+    File? imageFile,
+    String? imageUrl,
+    required void Function(File?) onImagePicked,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label,
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            ElevatedButton.icon(
+              onPressed: () => _pickImage(onImagePicked),
+              icon: const Icon(Icons.add_photo_alternate),
+              label: const Text('Select Image'),
+            ),
+            const SizedBox(width: 8),
+            if (imageFile != null)
+              Image.file(
+                imageFile,
+                height: 50,
+                width: 50,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) =>
+                    const Icon(Icons.error_outline, color: Colors.red),
+              )
+            else if (imageUrl != null && imageUrl.isNotEmpty)
+              CachedNetworkImage(
+                imageUrl: imageUrl,
+                height: 50,
+                width: 50,
+                fit: BoxFit.cover,
+                placeholder: (context, url) =>
+                    const CircularProgressIndicator(),
+                errorWidget: (context, url, error) =>
+                    const Icon(Icons.error_outline, color: Colors.red),
+              ),
+            if (imageFile != null)
+              IconButton(
+                icon: const Icon(Icons.remove_circle, color: Colors.red),
+                onPressed: () => onImagePicked(null),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Form(
+      key: widget.formKey,
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Insurance Form Verification',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const Divider(),
+
+            // Basic Information Section
+            SectionCard(
+              title: 'Basic Information',
+              children: [
+                CustomTextField(
+                  controller: _proposalNumberController,
+                  label: 'Proposal Number',
+                  isRequired: true,
+                ),
+                const SizedBox(height: 16),
+                CustomTextField(
+                  controller: _nameOfLifeAssuredController,
+                  label: 'Name of Life Assured',
+                  isRequired: true,
+                ),
+                const SizedBox(height: 16),
+                CustomTextField(
+                  controller: _lifeInsuredNameController,
+                  label: 'Life Insured Name',
+                  isRequired: true,
+                ),
+                const SizedBox(height: 16),
+                CustomTextField(
+                  controller: _verificationStatusController,
+                  label: 'Verification Status',
+                  isRequired: true,
+                ),
+                const SizedBox(height: 16),
+                InkWell(
+                  onTap: () => _selectDate(_dateOfVisitController),
+                  child: InputDecorator(
+                    decoration: InputDecoration(
+                      labelText: 'Date of Visit',
+                      border: const OutlineInputBorder(),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(_dateOfVisitController.text.isEmpty
+                            ? 'Select Date'
+                            : _dateOfVisitController.text),
+                        const Icon(Icons.calendar_today),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+
+            // Respondent Information
+            SectionCard(
+              title: 'Respondent Information',
+              children: [
+                CustomTextField(
+                  controller: _nameOfPersonMetController,
+                  label: 'Name of Person Met',
+                  isRequired: true,
+                ),
+                const SizedBox(height: 16),
+                CustomTextField(
+                  controller: _relationshipWithApplicantController,
+                  label: 'Relationship with Applicant',
+                  isRequired: true,
+                ),
+                const SizedBox(height: 16),
+                InkWell(
+                  onTap: () => _selectDate(_applicantDobController),
+                  child: InputDecorator(
+                    decoration: InputDecoration(
+                      labelText: 'Applicant Date of Birth',
+                      border: const OutlineInputBorder(),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(_applicantDobController.text.isEmpty
+                            ? 'Select Date'
+                            : _applicantDobController.text),
+                        const Icon(Icons.calendar_today),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                CustomTextField(
+                  controller: _phoneNumberController,
+                  label: 'Phone Number',
+                  keyboardType: TextInputType.phone,
+                  isRequired: true,
+                ),
+              ],
+            ),
+
+            // Health and Policy Information
+            SectionCard(
+              title: 'Health and Policy Information',
+              children: [
+                CustomTextField(
+                  controller: _healthConditionController,
+                  label: 'Health Condition',
+                  isRequired: true,
+                ),
+                const SizedBox(height: 16),
+                CustomTextField(
+                  controller: _appliedForPolicyController,
+                  label: 'Applied for Policy',
+                  isRequired: true,
+                  hintText: 'Yes/No',
+                ),
+                const SizedBox(height: 16),
+                CustomTextField(
+                  controller: _receivedThePolicyController,
+                  label: 'Received the Policy',
+                  isRequired: true,
+                  hintText: 'Yes/No',
+                ),
+                const SizedBox(height: 16),
+                CustomTextField(
+                  controller: _anyMedicalHistoryController,
+                  label: 'Any Medical History',
+                  maxLines: 3,
+                ),
+                const SizedBox(height: 16),
+                CustomTextField(
+                  controller: _medicalDoneController,
+                  label: 'Medical Done',
+                  isRequired: true,
+                  hintText: 'Yes/No',
+                ),
+              ],
+            ),
+
+            // Applicant Background
+            SectionCard(
+              title: 'Applicant Background',
+              children: [
+                CustomTextField(
+                  controller: _educationController,
+                  label: 'Education',
+                  isRequired: true,
+                ),
+                const SizedBox(height: 16),
+                CustomTextField(
+                  controller: _occupationController,
+                  label: 'Occupation',
+                  isRequired: true,
+                ),
+                const SizedBox(height: 16),
+                CustomTextField(
+                  controller: _annualIncomeOfApplicantController,
+                  label: 'Annual Income of Applicant',
+                  keyboardType: TextInputType.number,
+                  isRequired: true,
+                ),
+                const SizedBox(height: 16),
+                CustomTextField(
+                  controller: _nameOfShopController,
+                  label: 'Name of Shop/Business',
+                ),
+              ],
+            ),
+
+            // Agent Information
+            SectionCard(
+              title: 'Agent Information',
+              children: [
+                CustomTextField(
+                  controller: _laInformedTheAgentController,
+                  label: 'LA Informed the Agent',
+                  isRequired: true,
+                  hintText: 'Yes/No',
+                ),
+                const SizedBox(height: 16),
+                CustomTextField(
+                  controller: _existingInsuranceAgentController,
+                  label: 'Existing Insurance Agent',
+                ),
+                const SizedBox(height: 16),
+                CustomTextField(
+                  controller: _nomineeRelationController,
+                  label: 'Nominee Relation',
+                  isRequired: true,
+                ),
+              ],
+            ),
+
+            // Documentation
+            SectionCard(
+              title: 'Documentation',
+              children: [
+                _buildImagePickerField(
+                  label: 'Insured Photo',
+                  imageFile: _insuredPhotoTakenImageFile,
+                  imageUrl: widget.verification.insuredPhotoTakenIf,
+                  onImagePicked: (file) {
+                    setState(() {
+                      _insuredPhotoTakenImageFile = file;
+                    });
+                    _updateVerification();
+                  },
+                ),
+                const SizedBox(height: 16),
+                CustomTextField(
+                  controller: _idProofTakenController,
+                  label: 'ID Proof Taken',
+                  isRequired: true,
+                  hintText: 'Yes/No',
+                ),
+                const SizedBox(height: 16),
+                CustomTextField(
+                  controller: _newAddressObtainedController,
+                  label: 'New Address Obtained',
+                  isRequired: true,
+                  hintText: 'Yes/No',
+                ),
+                const SizedBox(height: 16),
+                CustomTextField(
+                  controller: _nameOfIndentityController,
+                  label: 'Name of Identity Document',
+                ),
+              ],
+            ),
+
+            // Residence Information
+            SectionCard(
+              title: 'Residence Information',
+              children: [
+                CustomTextField(
+                  controller: _residenceLocalityController,
+                  label: 'Residence Locality',
+                  isRequired: true,
+                ),
+                const SizedBox(height: 16),
+                CustomTextField(
+                  controller: _residenceOwnershipController,
+                  label: 'Residence Ownership',
+                  isRequired: true,
+                  hintText: 'Owned/Rented/Company Provided/Other',
+                ),
+                const SizedBox(height: 16),
+                CustomTextField(
+                  controller: _periodOfStayController,
+                  label: 'Period of Stay',
+                  isRequired: true,
+                ),
+                const SizedBox(height: 16),
+                CustomTextField(
+                  controller: _habitController,
+                  label: 'Habit',
+                ),
+              ],
+            ),
+
+            // Neighbor Information
+            SectionCard(
+              title: 'Neighbor Information',
+              children: [
+                CustomTextField(
+                  controller: _neighbor12Controller,
+                  label: 'Neighbor 1-2 Information',
+                  maxLines: 3,
+                ),
+                const SizedBox(height: 16),
+                CustomTextField(
+                  controller: _neighbor34Controller,
+                  label: 'Neighbor 3-4 Information',
+                  maxLines: 3,
+                ),
+              ],
+            ),
+
+            // Verifier Information
+            SectionCard(
+              title: 'Verifier Information',
+              children: [
+                CustomTextField(
+                  controller: _verifierNameController,
+                  label: 'Verifier Name',
+                  isRequired: true,
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _selectDate(TextEditingController controller) async {
@@ -228,301 +593,5 @@ class _InsuranceFormVerificationFormState
       controller.text = DateFormat('yyyy-MM-dd').format(picked);
       _updateVerification();
     }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Form(
-      key: widget.formKey,
-      onChanged: _updateVerification,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Insurance Form Verification',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          const Divider(),
-
-          // Basic Information Section
-          SectionCard(
-            title: 'Basic Information',
-            children: [
-              CustomTextField(
-                controller: _proposalNumberController,
-                label: 'Proposal Number',
-                isRequired: true,
-              ),
-              const SizedBox(height: 16),
-              CustomTextField(
-                controller: _nameOfLifeAssuredController,
-                label: 'Name of Life Assured',
-                isRequired: true,
-              ),
-              const SizedBox(height: 16),
-              CustomTextField(
-                controller: _lifeInsuredNameController,
-                label: 'Life Insured Name',
-                isRequired: true,
-              ),
-              const SizedBox(height: 16),
-              CustomTextField(
-                controller: _verificationStatusController,
-                label: 'Verification Status',
-                isRequired: true,
-              ),
-              const SizedBox(height: 16),
-              InkWell(
-                onTap: () => _selectDate(_dateOfVisitController),
-                child: InputDecorator(
-                  decoration: InputDecoration(
-                    labelText: 'Date of Visit',
-                    border: const OutlineInputBorder(),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(_dateOfVisitController.text.isEmpty
-                          ? 'Select Date'
-                          : _dateOfVisitController.text),
-                      const Icon(Icons.calendar_today),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-
-          // Respondent Information
-          SectionCard(
-            title: 'Respondent Information',
-            children: [
-              CustomTextField(
-                controller: _nameOfPersonMetController,
-                label: 'Name of Person Met',
-                isRequired: true,
-              ),
-              const SizedBox(height: 16),
-              CustomTextField(
-                controller: _relationshipWithApplicantController,
-                label: 'Relationship with Applicant',
-                isRequired: true,
-              ),
-              const SizedBox(height: 16),
-              InkWell(
-                onTap: () => _selectDate(_applicantDobController),
-                child: InputDecorator(
-                  decoration: InputDecoration(
-                    labelText: 'Applicant Date of Birth',
-                    border: const OutlineInputBorder(),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(_applicantDobController.text.isEmpty
-                          ? 'Select Date'
-                          : _applicantDobController.text),
-                      const Icon(Icons.calendar_today),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              CustomTextField(
-                controller: _phoneNumberController,
-                label: 'Phone Number',
-                keyboardType: TextInputType.phone,
-                isRequired: true,
-              ),
-            ],
-          ),
-
-          // Health and Policy Information
-          SectionCard(
-            title: 'Health and Policy Information',
-            children: [
-              CustomTextField(
-                controller: _healthConditionController,
-                label: 'Health Condition',
-                isRequired: true,
-              ),
-              const SizedBox(height: 16),
-              CustomTextField(
-                controller: _appliedForPolicyController,
-                label: 'Applied for Policy',
-                isRequired: true,
-                hintText: 'Yes/No',
-              ),
-              const SizedBox(height: 16),
-              CustomTextField(
-                controller: _receivedThePolicyController,
-                label: 'Received the Policy',
-                isRequired: true,
-                hintText: 'Yes/No',
-              ),
-              const SizedBox(height: 16),
-              CustomTextField(
-                controller: _anyMedicalHistoryController,
-                label: 'Any Medical History',
-                maxLines: 3,
-              ),
-              const SizedBox(height: 16),
-              CustomTextField(
-                controller: _medicalDoneController,
-                label: 'Medical Done',
-                isRequired: true,
-                hintText: 'Yes/No',
-              ),
-            ],
-          ),
-
-          // Applicant Background
-          SectionCard(
-            title: 'Applicant Background',
-            children: [
-              CustomTextField(
-                controller: _educationController,
-                label: 'Education',
-                isRequired: true,
-              ),
-              const SizedBox(height: 16),
-              CustomTextField(
-                controller: _occupationController,
-                label: 'Occupation',
-                isRequired: true,
-              ),
-              const SizedBox(height: 16),
-              CustomTextField(
-                controller: _annualIncomeOfApplicantController,
-                label: 'Annual Income of Applicant',
-                keyboardType: TextInputType.number,
-                isRequired: true,
-              ),
-              const SizedBox(height: 16),
-              CustomTextField(
-                controller: _nameOfShopController,
-                label: 'Name of Shop/Business',
-              ),
-            ],
-          ),
-
-          // Agent Information
-          SectionCard(
-            title: 'Agent Information',
-            children: [
-              CustomTextField(
-                controller: _laInformedTheAgentController,
-                label: 'LA Informed the Agent',
-                isRequired: true,
-                hintText: 'Yes/No',
-              ),
-              const SizedBox(height: 16),
-              CustomTextField(
-                controller: _existingInsuranceAgentController,
-                label: 'Existing Insurance Agent',
-              ),
-              const SizedBox(height: 16),
-              CustomTextField(
-                controller: _nomineeRelationController,
-                label: 'Nominee Relation',
-                isRequired: true,
-              ),
-            ],
-          ),
-
-          // Documentation
-          SectionCard(
-            title: 'Documentation',
-            children: [
-              CustomTextField(
-                controller: _insuredPhotoTakenController,
-                label: 'Insured Photo Taken',
-                isRequired: true,
-                hintText: 'Yes/No',
-              ),
-              const SizedBox(height: 16),
-              CustomTextField(
-                controller: _idProofTakenController,
-                label: 'ID Proof Taken',
-                isRequired: true,
-                hintText: 'Yes/No',
-              ),
-              const SizedBox(height: 16),
-              CustomTextField(
-                controller: _newAddressObtainedController,
-                label: 'New Address Obtained',
-                isRequired: true,
-                hintText: 'Yes/No',
-              ),
-              const SizedBox(height: 16),
-              CustomTextField(
-                controller: _nameOfIndentityController,
-                label: 'Name of Identity Document',
-              ),
-            ],
-          ),
-
-          // Residence Information
-          SectionCard(
-            title: 'Residence Information',
-            children: [
-              CustomTextField(
-                controller: _residenceLocalityController,
-                label: 'Residence Locality',
-                isRequired: true,
-              ),
-              const SizedBox(height: 16),
-              CustomTextField(
-                controller: _residenceOwnershipController,
-                label: 'Residence Ownership',
-                isRequired: true,
-                hintText: 'Owned/Rented/Company Provided/Other',
-              ),
-              const SizedBox(height: 16),
-              CustomTextField(
-                controller: _periodOfStayController,
-                label: 'Period of Stay',
-                isRequired: true,
-              ),
-              const SizedBox(height: 16),
-              CustomTextField(
-                controller: _habitController,
-                label: 'Habit',
-              ),
-            ],
-          ),
-
-          // Neighbor Information
-          SectionCard(
-            title: 'Neighbor Information',
-            children: [
-              CustomTextField(
-                controller: _neighbor12Controller,
-                label: 'Neighbor 1-2 Information',
-                maxLines: 3,
-              ),
-              const SizedBox(height: 16),
-              CustomTextField(
-                controller: _neighbor34Controller,
-                label: 'Neighbor 3-4 Information',
-                maxLines: 3,
-              ),
-            ],
-          ),
-
-          // Verifier Information
-          SectionCard(
-            title: 'Verifier Information',
-            children: [
-              CustomTextField(
-                controller: _verifierNameController,
-                label: 'Verifier Name',
-                isRequired: true,
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
   }
 }

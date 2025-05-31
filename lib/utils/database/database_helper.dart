@@ -19,8 +19,9 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 1,
+      version: 2,
       onCreate: _createDB,
+      onUpgrade: _onUpgrade,
     );
   }
 
@@ -35,6 +36,29 @@ class DatabaseHelper {
         is_synced INTEGER DEFAULT 0
       )
     ''');
+    await db.execute('''
+      CREATE TABLE offline_images (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        lead_id INTEGER,
+        local_path TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        is_synced INTEGER DEFAULT 0
+      )
+    ''');
+  }
+
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      await db.execute('''
+        CREATE TABLE offline_images (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          lead_id INTEGER,
+          local_path TEXT,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          is_synced INTEGER DEFAULT 0
+        )
+      ''');
+    }
   }
 
   Future<int> insertOfflineLead(Map<String, dynamic> data) async {
@@ -42,10 +66,24 @@ class DatabaseHelper {
     return await db.insert('offline_leads', data);
   }
 
+  Future<int> insertOfflineImage(Map<String, dynamic> data) async {
+    final db = await database;
+    return await db.insert('offline_images', data);
+  }
+
   Future<List<Map<String, dynamic>>> getUnsyncedLeads() async {
     final db = await database;
     return await db.query(
       'offline_leads',
+      where: 'is_synced = ?',
+      whereArgs: [0],
+    );
+  }
+
+  Future<List<Map<String, dynamic>>> getUnsyncedImages() async {
+    final db = await database;
+    return await db.query(
+      'offline_images',
       where: 'is_synced = ?',
       whereArgs: [0],
     );
@@ -61,10 +99,29 @@ class DatabaseHelper {
     );
   }
 
+  Future<void> markImageAsSynced(int id) async {
+    final db = await database;
+    await db.update(
+      'offline_images',
+      {'is_synced': 1},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
   Future<void> deleteSyncedLead(int id) async {
     final db = await database;
     await db.delete(
       'offline_leads',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  Future<void> deleteSyncedImage(int id) async {
+    final db = await database;
+    await db.delete(
+      'offline_images',
       where: 'id = ?',
       whereArgs: [id],
     );

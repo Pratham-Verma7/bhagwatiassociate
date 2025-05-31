@@ -147,58 +147,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                     _fetchDashboardData()); // Refresh when returning
                               },
                             ),
-                            DashboardCard(
-                              title: 'Pending Leads',
-                              count: '0',
-                              color: const Color(0xFF3B82F6),
-                              onTap: () {
-                                // Navigate to pending leads when implemented
-                              },
-                            ),
                           ],
-                        ),
-
-                        const SizedBox(height: 24),
-
-                        // Data status
-                        Card(
-                          child: Padding(
-                            padding: const EdgeInsets.all(16.0),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  'Data Status',
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                const SizedBox(height: 12),
-                                _leadCount > 0
-                                    ? Text(
-                                        'Successfully loaded $_leadCount leads from the inspiration database.')
-                                    : const Text(
-                                        'No leads found. You can add new leads from the lead management screen.',
-                                        style: TextStyle(color: Colors.orange),
-                                      ),
-                                const SizedBox(height: 8),
-                                if (_leadCount == 0)
-                                  ElevatedButton(
-                                    onPressed: () {
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (context) =>
-                                              const LeadListScreen(),
-                                        ),
-                                      );
-                                    },
-                                    child: const Text('Go to Lead Management'),
-                                  ),
-                              ],
-                            ),
-                          ),
                         ),
                       ],
                     ),
