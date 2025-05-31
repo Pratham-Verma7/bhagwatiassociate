@@ -42,7 +42,7 @@ class LeadVerificationFormScreen extends StatefulWidget {
 class _LeadVerificationFormScreenState
     extends State<LeadVerificationFormScreen> {
   final _formKey = GlobalKey<FormState>();
-  bool _isLoading = true;
+  bool _isLoading = false;
 
   // Service instances
   final _residenceVerificationService = ResidenceVerificationService.instance;
@@ -75,20 +75,7 @@ class _LeadVerificationFormScreenState
   bool get _isInsuranceFormVerification =>
       widget.lead.verificationType == 'insurance_form';
 
-  // Form controllers for calling and verifier sections
-  final _dateOfCallingController = TextEditingController();
-  final _timeOfCallingController = TextEditingController();
-  final _contactNumberController = TextEditingController();
-  final _nameOfApplicantController = TextEditingController();
-  final _contactedController = TextEditingController();
-  final _spokenToController = TextEditingController();
-  final _relationWithApplicantController = TextEditingController();
-  final _numberOfYearStayingController = TextEditingController();
-  final _ownershipOfStayingController = TextEditingController();
-  final _alternateContactNoController = TextEditingController();
-  final _verifierNameController = TextEditingController();
-  final _agencyManagerNameController = TextEditingController();
-  final _agencyNameController = TextEditingController();
+
 
   // Lists for selected and uploaded images
   final List<File> _imagesToUpload = [];
@@ -97,173 +84,10 @@ class _LeadVerificationFormScreenState
   @override
   void initState() {
     super.initState();
-    _loadVerificationData();
-    _loadImages(); // Load already uploaded images
+    _createEmptyVerifications();
   }
 
-  @override
-  void dispose() {
-    // Dispose controllers for common sections
-    _dateOfCallingController.dispose();
-    _timeOfCallingController.dispose();
-    _contactNumberController.dispose();
-    _nameOfApplicantController.dispose();
-    _contactedController.dispose();
-    _spokenToController.dispose();
-    _relationWithApplicantController.dispose();
-    _numberOfYearStayingController.dispose();
-    _ownershipOfStayingController.dispose();
-    _alternateContactNoController.dispose();
-    _verifierNameController.dispose();
-    _agencyManagerNameController.dispose();
-    _agencyNameController.dispose();
 
-    super.dispose();
-  }
-
-  Future<void> _loadVerificationData() async {
-    try {
-      if (widget.lead.id == null) {
-        throw Exception('Lead ID is null');
-      }
-
-      if (_isResidenceVerification) {
-        await _loadResidenceVerificationData(widget.lead.id!);
-      } else if (_isOfficeVerification) {
-        await _loadOfficeVerificationData(widget.lead.id!);
-      } else if (_isMatrixVerification) {
-        await _loadMatrixVerificationData(widget.lead.id!);
-      } else if (_isEmployeeAddressVerification) {
-        await _loadEmployeeAddressVerificationData(widget.lead.id!);
-      } else if (_isInsuranceFormVerification) {
-        await _loadInsuranceFormVerificationData(widget.lead.id!);
-      } else {
-        throw Exception(
-            'Unsupported verification type: ${widget.lead.verificationType}');
-      }
-    } catch (e) {
-      print('Error loading verification data: $e');
-      // Create empty verification objects in case of error
-      _createEmptyVerifications();
-    } finally {
-      setState(() {
-        _isLoading = false;
-      });
-    }
-  }
-
-  Future<void> _loadResidenceVerificationData(int leadId) async {
-    try {
-      final verification =
-          await _residenceVerificationService.getVerificationByLeadId(leadId);
-
-      if (verification != null) {
-        // Existing verification data found
-        setState(() {
-          _residenceVerification = verification;
-        });
-      } else {
-        // No existing data, create new verification
-        setState(() {
-          _residenceVerification = ResidenceVerificationModel.empty();
-          _residenceVerification =
-              _residenceVerification!.copyWith(leadId: leadId);
-        });
-      }
-    } catch (e) {
-      print('Error loading residence verification data: $e');
-      // Create a new empty verification
-      setState(() {
-        _residenceVerification = ResidenceVerificationModel.empty();
-        _residenceVerification =
-            _residenceVerification!.copyWith(leadId: leadId);
-      });
-    }
-  }
-
-  Future<void> _loadOfficeVerificationData(int leadId) async {
-    try {
-      final verification =
-          await _officeVerificationService.getVerificationByLeadId(leadId);
-
-      if (verification != null) {
-        // Existing verification data found
-        setState(() {
-          _officeVerification = verification;
-        });
-      } else {
-        // No existing data, create new verification
-        setState(() {
-          _officeVerification = OfficeVerificationModel.empty();
-          _officeVerification = _officeVerification!.copyWith(leadId: leadId);
-        });
-      }
-    } catch (e) {
-      print('Error loading office verification data: $e');
-      // Create a new empty verification
-      setState(() {
-        _officeVerification = OfficeVerificationModel.empty();
-        _officeVerification = _officeVerification!.copyWith(leadId: leadId);
-      });
-    }
-  }
-
-  Future<void> _loadMatrixVerificationData(int leadId) async {
-    try {
-      final verification =
-          await _matrixVerificationService.getVerificationByLeadId(leadId);
-
-      if (verification != null) {
-        // Existing verification data found
-        setState(() {
-          _matrixVerification = verification;
-        });
-      } else {
-        // No existing data, create new verification
-        setState(() {
-          _matrixVerification = MatrixVerificationModel.empty();
-          _matrixVerification = _matrixVerification!.copyWith(leadId: leadId);
-        });
-      }
-    } catch (e) {
-      print('Error loading matrix verification data: $e');
-      // Create a new empty verification
-      setState(() {
-        _matrixVerification = MatrixVerificationModel.empty();
-        _matrixVerification = _matrixVerification!.copyWith(leadId: leadId);
-      });
-    }
-  }
-
-  Future<void> _loadEmployeeAddressVerificationData(int leadId) async {
-    try {
-      final verification = await _employeeAddressVerificationService
-          .getVerificationByLeadId(leadId);
-
-      if (verification != null) {
-        // Existing verification data found
-        setState(() {
-          _employeeAddressVerification = verification;
-        });
-      } else {
-        // No existing data, create new verification
-        setState(() {
-          _employeeAddressVerification =
-              EmployeeAddressVerificationModel.empty();
-          _employeeAddressVerification =
-              _employeeAddressVerification!.copyWith(leadId: leadId);
-        });
-      }
-    } catch (e) {
-      print('Error loading employee address verification data: $e');
-      // Create a new empty verification
-      setState(() {
-        _employeeAddressVerification = EmployeeAddressVerificationModel.empty();
-        _employeeAddressVerification =
-            _employeeAddressVerification!.copyWith(leadId: leadId);
-      });
-    }
-  }
 
   Future<void> _loadInsuranceFormVerificationData(int leadId) async {
     try {
@@ -528,7 +352,7 @@ class _LeadVerificationFormScreenState
                 _imagesToUpload.clear();
               });
               imageUploadSuccess = true;
-              _loadImages(); // Refresh the list of uploaded images
+              // Refresh the list of uploaded images
             } catch (e) {
               print('Error uploading or saving images: $e');
               imageUploadSuccess = false;
@@ -683,24 +507,7 @@ class _LeadVerificationFormScreenState
     }
   }
 
-  Future<void> _loadImages() async {
-    if (widget.lead.id != null) {
-      try {
-        final imageService = ImageService.instance;
-        // Assuming the backend endpoint for fetching images is now correct and returns full URLs
-        final images = await imageService.getLeadImages(widget.lead.id!);
-        setState(() {
-          _uploadedImageUrls = images;
-        });
-      } catch (e) {
-        print('Error loading uploaded images: $e');
-        // Handle error loading images, maybe show a message or empty the list
-        setState(() {
-          _uploadedImageUrls = [];
-        });
-      }
-    }
-  }
+
 
   // Widget to build uploaded image display
   Widget _buildUploadedImageDisplay(String imageUrl) {

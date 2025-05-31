@@ -137,48 +137,5 @@ class ImageService {
     }
   }
 
-  /// Get images for a lead
-  Future<List<String>> getLeadImages(int leadId) async {
-    try {
-      // Use the full URL to prevent double base URL issue
-      final String fullUrl =
-          'https://www.bhagwatiassociate.in/api_files/$leadId';
 
-      final token = GetStorage().read('token');
-      if (token == null) {
-        throw Exception('Authentication token not found');
-      }
-
-      final response = await http.get(
-        Uri.parse(fullUrl),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Accept': 'application/json',
-        },
-      );
-
-      if (response.statusCode == 200) {
-        final jsonResponse = jsonDecode(response.body);
-        if (jsonResponse is List) {
-          // Assuming the list contains maps with a 'file_url' key
-          return jsonResponse
-              .map((item) => item['file_url'] as String)
-              .toList();
-        } else if (jsonResponse is Map<String, dynamic> &&
-            jsonResponse['file_url'] != null) {
-          // Handle case where a single image URL is returned in a map
-          return [jsonResponse['file_url'] as String];
-        } else {
-          // Handle unexpected response format
-          throw Exception('Unexpected response format from image list API');
-        }
-      } else {
-        throw Exception('Failed to fetch lead images: ${response.statusCode}');
-      }
-    } catch (e) {
-      print('Error fetching lead images: $e');
-      // Consider returning an empty list or rethrowing based on desired error handling
-      return [];
-    }
-  }
 }

@@ -64,6 +64,13 @@ class _EmployeeAddressVerificationFormState
   void initState() {
     super.initState();
     _initControllers();
+    // Initialize image file if verification model already has a URL
+    if (widget.verification.signatureEav != null &&
+        widget.verification.signatureEav!.isNotEmpty) {
+      // We store URLs in the model, not local paths directly in the form state
+      // The parent screen is responsible for loading/displaying uploaded images.
+      // This form state will only hold *newly selected* images before submission.
+    }
   }
 
   void _initControllers() {

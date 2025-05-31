@@ -49,8 +49,6 @@ class SHttpHelper {
   }
 
   static Future<dynamic> get(String endpoint) async {
-    print('Making GET request to: $_baseUrl/$endpoint');
-
     // Get stored token
     final token = _authToken ?? GetStorage().read('token');
     if (token == null) {
@@ -66,15 +64,8 @@ class SHttpHelper {
       },
     );
 
-    print('Response status code: ${response.statusCode}');
-    print('Response content-type: ${response.headers['content-type']}');
-    print(
-        'Response body preview: ${response.body.length > 100 ? response.body.substring(0, 100) + '...' : response.body}');
-
     // Check if response is HTML instead of JSON
     if (response.headers['content-type']?.contains('text/html') ?? false) {
-      print(
-          'Received HTML response instead of JSON. This might indicate an authentication issue.');
       throw Exception(
           'Authentication failed or session expired. Please login again.');
     }
@@ -85,9 +76,6 @@ class SHttpHelper {
 
   static Future<Map<String, dynamic>> post(
       String endpoint, dynamic data) async {
-    print('Making POST request to: $_baseUrl/$endpoint');
-    print('Request data: $data');
-
     // Get stored token
     final token = _authToken ?? GetStorage().read('token');
     if (token == null) {
@@ -104,15 +92,8 @@ class SHttpHelper {
       },
     );
 
-    print('Response status code: ${response.statusCode}');
-    print('Response content-type: ${response.headers['content-type']}');
-    print(
-        'Response body preview: ${response.body.length > 100 ? response.body.substring(0, 100) + '...' : response.body}');
-
     // Check if response is HTML instead of JSON
     if (response.headers['content-type']?.contains('text/html') ?? false) {
-      print(
-          'Received HTML response instead of JSON. This might indicate an authentication issue.');
       throw Exception(
           'Authentication failed or session expired. Please login again.');
     }
@@ -122,9 +103,6 @@ class SHttpHelper {
   }
 
   static Future<Map<String, dynamic>> put(String endpoint, dynamic data) async {
-    print('Making PUT request to: $_baseUrl/$endpoint');
-    print('Request data: $data');
-
     // Get stored token
     final token = _authToken ?? GetStorage().read('token');
     if (token == null) {
@@ -140,11 +118,6 @@ class SHttpHelper {
         'Accept': 'application/json',
       },
     );
-
-    print('Response status code: ${response.statusCode}');
-    print('Response content-type: ${response.headers['content-type']}');
-    print(
-        'Response body preview: ${response.body.length > 100 ? response.body.substring(0, 100) + '...' : response.body}');
 
     // Handle redirects
     if (response.statusCode == 302) {
@@ -257,7 +230,6 @@ class SHttpHelper {
 // Post
   static Future<Map<String, dynamic>> postWithToken(
       String endpoint, dynamic data, String token) async {
-    print(data);
     final response = await http.post(
       Uri.parse('$_baseUrl/$endpoint'),
       body: jsonEncode(data),
@@ -266,8 +238,6 @@ class SHttpHelper {
         'Content-Type': 'application/json',
       },
     );
-    print(
-        'response from postWithToken: ${jsonDecode(response.body)} ${response.statusCode}');
     return _handleResponse(response);
   }
 
@@ -307,32 +277,23 @@ class SHttpHelper {
   static Future<Map<String, dynamic>> testLogin(
       String email, String password) async {
     try {
-      print('Attempting login with POST to /api/login');
       final response = await post('api/login', {
         'email': email,
         'password': password,
       });
       return response;
     } catch (e) {
-      print('POST to /api/login failed: $e');
-
       try {
-        print('Attempting login with GET to /api/login');
         final response = await get('api/login?email=$email&password=$password');
         return response;
       } catch (e) {
-        print('GET to /api/login failed: $e');
-
         try {
-          print('Attempting login with POST to /login');
           final response = await post('login', {
             'email': email,
             'password': password,
           });
           return response;
         } catch (e) {
-          print('POST to /login failed: $e');
-
           try {
             print('Attempting login with GET to /login');
             final response = await get('login?email=$email&password=$password');

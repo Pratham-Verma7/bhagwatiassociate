@@ -24,7 +24,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // Current user ID (this would typically come from auth state)
   // Replace with actual user ID from auth
   late String _currentUserId;
-
   @override
   void initState() {
     super.initState();
@@ -32,10 +31,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final userDetails = Storage.read('userDetails');
     if (userDetails != null && userDetails is Map<String, dynamic>) {
       _currentUserId = userDetails['id'].toString(); // Ensure it's a String
-      print("User ID: $_currentUserId");
     } else {
       _currentUserId = '';
-      print("User details not found in storage.");
     }
 
     _fetchDashboardData();
@@ -60,7 +57,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
           _errorMessage = e.message;
         } else {
           _errorMessage = 'Failed to load dashboard data. Please try again.';
-          print('Dashboard error: $e'); // Log the actual error
         }
       });
     }

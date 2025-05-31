@@ -40,10 +40,8 @@ class OfflineSyncService extends GetxService {
   }
 
   Future<void> syncOfflineData() async {
-    print('Attempting to sync offline data...');
     await syncOfflineLeads();
     await syncOfflineImages();
-    print('Offline data sync attempt finished.');
   }
 
   Future<void> saveOfflineLead({
@@ -57,9 +55,8 @@ class OfflineSyncService extends GetxService {
         'verification_type': verificationType,
         'form_data': jsonEncode(formData),
       });
-      print('Lead $leadId saved offline.');
     } catch (e) {
-      print('Error saving offline lead: $e');
+      // Error handling
     }
   }
 
@@ -72,21 +69,18 @@ class OfflineSyncService extends GetxService {
         'lead_id': leadId,
         'local_path': localPath,
       });
-      print('Image path $localPath for lead $leadId saved offline.');
     } catch (e) {
-      print('Error saving offline image: $e');
+      // Error handling
     }
   }
 
   Future<void> syncOfflineLeads() async {
     if (!_isOnline) return;
 
-    print('Syncing offline leads...');
     try {
       final unsyncedLeads = await _dbHelper.getUnsyncedLeads();
 
       if (unsyncedLeads.isEmpty) {
-        print('No unsynced leads found.');
         return;
       }
 
@@ -114,8 +108,6 @@ class OfflineSyncService extends GetxService {
               endpoint += 'lead_insurance';
               break;
             default:
-              print(
-                  'Unknown verification type ${verificationType} for offline lead ${lead['id']}. Skipping.');
               continue;
           }
 
@@ -132,31 +124,23 @@ class OfflineSyncService extends GetxService {
 
             await _dbHelper.markLeadAsSynced(lead['id'] as int);
             await _dbHelper.deleteSyncedLead(lead['id'] as int);
-            print('Successfully synced and deleted offline lead ${lead['id']}');
-          } else {
-            print(
-                'Failed to sync offline lead ${lead['id']}. Response: $response');
           }
         } catch (e) {
-          print('Error syncing lead ${lead['id']}: $e');
           continue;
         }
       }
-      print('Finished syncing offline leads.');
     } catch (e) {
-      print('Error in syncOfflineLeads: $e');
+      // Error handling
     }
   }
 
   Future<void> syncOfflineImages() async {
     if (!_isOnline) return;
 
-    print('Syncing offline images...');
     try {
       final unsyncedImages = await _dbHelper.getUnsyncedImages();
 
       if (unsyncedImages.isEmpty) {
-        print('No unsynced images found.');
         return;
       }
 
@@ -166,16 +150,12 @@ class OfflineSyncService extends GetxService {
           final leadId = image['lead_id'] as int?;
 
           if (leadId == null) {
-            print(
-                'Skipping offline image ${image['id']} due to missing lead_id.');
             await _dbHelper.deleteSyncedImage(image['id'] as int);
             continue;
           }
 
           final imageFile = File(localPath);
           if (!await imageFile.exists()) {
-            print(
-                'Skipping offline image ${image['id']}: Local file not found at $localPath.');
             await _dbHelper.deleteSyncedImage(image['id'] as int);
             continue;
           }
@@ -198,15 +178,12 @@ class OfflineSyncService extends GetxService {
 
           await _dbHelper.markImageAsSynced(image['id'] as int);
           await _dbHelper.deleteSyncedImage(image['id'] as int);
-          print('Successfully synced and deleted offline image ${image['id']}');
         } catch (e) {
-          print('Error syncing offline image ${image['id']}: $e');
           continue;
         }
       }
-      print('Finished syncing offline images.');
     } catch (e) {
-      print('Error in syncOfflineImages: $e');
+      // Error handling
     }
   }
 }

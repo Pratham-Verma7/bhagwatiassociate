@@ -5,11 +5,13 @@ import 'package:bhagwatiassociate/features/leads/data/services/lead_service.dart
 import 'package:bhagwatiassociate/utils/loaders/loaders.dart';
 import 'package:bhagwatiassociate/utils/exceptions/appexceptions.dart';
 import 'package:bhagwatiassociate/utils/http/http_client.dart';
-import 'package:bhagwatiassociate/features/leads/screens/lead_detail_screen.dart';
 import 'package:bhagwatiassociate/features/leads/presentation/screens/lead_verification_form_screen.dart';
 import 'package:bhagwatiassociate/common/widgets/custom_app_bar.dart';
-
+import 'package:get/get.dart';
+import 'package:get_storage/get_storage.dart';
 import '../../Dashboard/screens/widgets/sidebar.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
+import 'dart:async';
 
 class LeadListScreen extends StatefulWidget {
   const LeadListScreen({Key? key}) : super(key: key);
@@ -25,6 +27,9 @@ class _LeadListScreenState extends State<LeadListScreen> {
   int _currentPage = 1;
   final int _totalPages = 1;
   bool _isLoading = true;
+  late final GetStorage storage;
+  late final Map<String, dynamic>? userDetails;
+  late StreamSubscription<ConnectivityResult> _connectivitySubscription;
 
   // Lead data
   List<LeadModel> _leads = [];
@@ -35,22 +40,79 @@ class _LeadListScreenState extends State<LeadListScreen> {
   @override
   void initState() {
     super.initState();
+    storage = GetStorage();
+    userDetails = storage.read<Map<String, dynamic>>('userDetails');
     _loadLeads();
+    _connectivitySubscription = Connectivity()
+        .onConnectivityChanged
+        .listen((ConnectivityResult result) {
+      if (result != ConnectivityResult.none) {
+        // Internet connection is back, reload leads
+        print('Connectivity changed: Online. Reloading leads...');
+        _loadLeads();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _connectivitySubscription.cancel(); // Cancel the subscription in dispose
+    // Dispose controllers for common sections
+    _searchController.dispose(); // Dispose the search controller
+    super.dispose();
   }
 
   Future<void> _loadLeads() async {
     setState(() {
       _isLoading = true;
+      _errorMessage = ''; // Clear previous errors
     });
 
     try {
-      final leads = await _leadService.getLeadsByUserId();
-      setState(() {
-        _leads = leads;
-        _isLoading = false;
-      });
+      final connectivityResult = await Connectivity().checkConnectivity();
+      final isOnline = connectivityResult != ConnectivityResult.none;
+
+      if (!isOnline) {
+        // Offline: Try to load from local storage
+        print('Offline mode: Attempting to load leads from storage...');
+        final storedLeads = _leadService.getStoredLeadsData();
+        if (storedLeads != null && storedLeads.isNotEmpty) {
+          print(
+              'Offline mode: Loaded ${storedLeads.length} leads from storage.');
+          setState(() {
+            _leads = storedLeads;
+          });
+        } else {
+          print('Offline mode: No leads found in storage.');
+          setState(() {
+            _errorMessage =
+                'You are offline and no leads were found in your local storage.';
+          });
+        }
+      } else {
+        // Online: Fetch from API
+        print('Online mode: Fetching leads from API...');
+        final fetchedLeads = await _leadService.getLeadsByUserId();
+        print('Online mode: Fetched ${fetchedLeads.length} leads from API.');
+        if (fetchedLeads.isNotEmpty) {
+          setState(() {
+            _leads = fetchedLeads;
+          });
+          // Store fetched leads locally for offline access
+          await _leadService.storeLeadsData(fetchedLeads);
+          print('Online mode: Stored ${fetchedLeads.length} leads locally.');
+        } else {
+          setState(() {
+            _errorMessage = 'No leads found.';
+          });
+        }
+      }
     } catch (e) {
       print('Error loading leads: $e');
+      setState(() {
+        _errorMessage = 'Failed to load leads: ${e.toString()}';
+      });
+    } finally {
       setState(() {
         _isLoading = false;
       });
@@ -294,8 +356,7 @@ class _LeadListScreenState extends State<LeadListScreen> {
                                       DataCell(_buildLimitedText(
                                           lead.verificationType ?? 'N/A', 120)),
                                       DataCell(_buildLimitedText(
-                                          lead.assignedTo?.toString() ?? 'N/A',
-                                          120)),
+                                          userDetails?['name'] ?? 'User', 120)),
                                       DataCell(
                                         Container(
                                           padding: const EdgeInsets.symmetric(
@@ -306,8 +367,7 @@ class _LeadListScreenState extends State<LeadListScreen> {
                                                 BorderRadius.circular(4),
                                           ),
                                           child: Text(
-                                            lead.status?.toString() ??
-                                                'Unknown',
+                                            lead.status?.toString() ?? 'N/A',
                                             style: const TextStyle(
                                                 color: Colors.white,
                                                 fontSize: 12),
@@ -374,16 +434,8 @@ class _LeadListScreenState extends State<LeadListScreen> {
         _loadLeads();
       });
     } else {
-      // For other types, navigate to the regular lead details screen
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => LeadDetailScreen(leadId: id),
-        ),
-      ).then((_) {
-        // Refresh the list when coming back from the detail screen
         _loadLeads();
-      });
+
     }
   }
 
